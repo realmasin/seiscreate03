@@ -41,7 +41,8 @@ body {
     bottom: 50px;
     left: 140px; 
     image-rendering: pixelated;
-    transition: left 0.1s ease-out; 
+    transition: left 0.15s ease-out; 
+    z-index: 100;
 }
 
 #score-board {
@@ -51,6 +52,21 @@ body {
     color: #fff;
     font-size: 24px;
     font-weight: bold;
-    z-index: 10;
+    z-index: 110;
     text-shadow: 2px 2px 0px #000;
 }
+
+/* Dynamic Game Objects (Enemies and Candies) */
+.game-object {
+    position: absolute;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center bottom;
+    image-rendering: pixelated;
+    transform-origin: bottom center;
+    z-index: 50;
+}
+
+.pumpkin { background-image: url('assets/enemy-pumpkin.png'); }
+.ghost { background-image: url('assets/enemy-ghost.png'); }
+.candy { background-image: url('assets/candy.png'); }
