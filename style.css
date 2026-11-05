@@ -24,34 +24,35 @@ body {
 /* Scrolling background */
 #background {
     width: 100%;
-    height: 200%; /* Double height for infinite scrolling */
+    height: 200%;
     background-image: url('assets/bg-road.png');
     background-size: cover;
     background-position: bottom;
     position: absolute;
     top: -100%;
-    animation: scrollBg 2s linear infinite; /* Background scroll speed */
-    image-rendering: pixelated; /* Maintain pixel art quality */
-}
-
-/* Background animation for depth effect */
-@keyframes scrollBg {
-    0% { top: -100%; }
-    100% { top: 0; }
+    animation: scrollBg 5s linear infinite; /* Changed from 2s to 5s to slow it down */
+    image-rendering: pixelated;
 }
 
 /* Rocky character */
 #rocky {
-    width: 80px;
-    height: 80px;
+    width: 120px; /* Increased from 80px */
+    height: 120px; /* Increased from 80px */
     background-image: url('assets/rocky-run.png');
     background-size: contain;
     background-repeat: no-repeat;
     position: absolute;
     bottom: 50px;
-    left: 160px; /* Center horizontally (400/2 - 80/2) */
+    left: 140px; /* Centered horizontally (400/2 - 120/2) */
     image-rendering: pixelated;
-    transition: left 0.1s ease-out; /* Smooth horizontal movement */
+    transition: left 0.1s ease-out; 
+}
+
+
+/* Background animation for depth effect */
+@keyframes scrollBg {
+    0% { top: -100%; }
+    100% { top: 0; }
 }
 
 /* Score board */
