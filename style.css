@@ -746,38 +746,14 @@ body {
   background-color: #4e1f7a;
 }
 
-/* Blinking INSERT COIN TO START Prompt */
-.insert-coin-prompt {
-  width: 100%;
-  padding: 16px 12px;
-  font-family: 'Press Start 2P', monospace;
-  font-size: 12px;
-  line-height: 1.5;
-  color: #fde047;
-  background-color: rgba(17, 6, 31, 0.92);
-  border: 3px solid #f97316;
-  box-shadow: 0 5px 0 #000000;
-  text-shadow: 2px 2px 0 #9a3412, -1px -1px 0 #000000;
-  cursor: pointer;
-  animation: coinBlink 0.85s steps(2, end) infinite;
-}
-
-.insert-coin-prompt:hover {
-  color: #ffffff;
-  border-color: #fde047;
-}
-
-@keyframes coinBlink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.25; }
-}
-
 /* Menu Overlays & Cinematic Fade Transition */
 .overlay-screen {
   position: absolute;
   inset: 0;
   z-index: 35;
-  background-color: rgba(8, 3, 13, 0.58);
+  background-color: rgba(8, 3, 13, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -786,10 +762,8 @@ body {
   transition: opacity 0.65s ease;
 }
 
-/* Position Main Menu modal higher so Rocky is clearly visible running in Attract Mode */
+/* Main Menu Overlay */
 #main-menu-overlay {
-  align-items: flex-start;
-  padding-top: 46px;
   background-color: rgba(8, 3, 13, 0.38);
 }
 
@@ -974,4 +948,4 @@ body {
 
 .highlight-num {
   color: #fde047;
-   }
+}
