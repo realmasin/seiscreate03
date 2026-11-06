@@ -144,33 +144,17 @@ body {
   100% { transform: translate3d(0, 0, 0); }
 }
 
-/* ==========================================================================
-   Precise Dirt Road Background & Perspective Alignment
-   ========================================================================== */
+/* Static Road Background */
 #bg-road {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  background-color: #12071f;
+  object-fit: cover;
+  object-position: center center;
   z-index: 1;
   pointer-events: none;
   transition: filter 1.6s ease;
-}
-
-/* The dirt road perspective matching your exact vanishing point */
-.dirt-path-perspective {
-  position: absolute;
-  top: 42.5%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100%;
-  height: 57.5%;
-  background-image: url('assets/bg-road.png');
-  background-size: 100% 100%;
-  clip-path: polygon(49.5% 0%, 50.5% 0%, 100% 100%, 0% 100%);
-  z-index: 2;
-  pointer-events: none;
 }
 
 /* Score >= 1000 Blood Moon Phase Shift */
@@ -181,7 +165,7 @@ body {
 #blood-moon-tint {
   position: absolute;
   inset: 0;
-  z-index: 3;
+  z-index: 2;
   background-color: #991b1b;
   opacity: 0;
   pointer-events: none;
@@ -218,7 +202,7 @@ body {
 #speed-lines-layer {
   position: absolute;
   inset: 0;
-  z-index: 4;
+  z-index: 3;
   pointer-events: none;
   overflow: hidden;
 }
@@ -762,38 +746,14 @@ body {
   background-color: #4e1f7a;
 }
 
-/* Blinking INSERT COIN TO START Prompt */
-.insert-coin-prompt {
-  width: 100%;
-  padding: 16px 12px;
-  font-family: 'Press Start 2P', monospace;
-  font-size: 12px;
-  line-height: 1.5;
-  color: #fde047;
-  background-color: rgba(17, 6, 31, 0.92);
-  border: 3px solid #f97316;
-  box-shadow: 0 5px 0 #000000;
-  text-shadow: 2px 2px 0 #9a3412, -1px -1px 0 #000000;
-  cursor: pointer;
-  animation: coinBlink 0.85s steps(2, end) infinite;
-}
-
-.insert-coin-prompt:hover {
-  color: #ffffff;
-  border-color: #fde047;
-}
-
-@keyframes coinBlink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.25; }
-}
-
 /* Menu Overlays & Cinematic Fade Transition */
 .overlay-screen {
   position: absolute;
   inset: 0;
   z-index: 35;
-  background-color: rgba(8, 3, 13, 0.58);
+  background-color: rgba(8, 3, 13, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -802,10 +762,8 @@ body {
   transition: opacity 0.65s ease;
 }
 
-/* Position Main Menu modal higher so Rocky is clearly visible running in Attract Mode */
+/* Main Menu Overlay */
 #main-menu-overlay {
-  align-items: flex-start;
-  padding-top: 46px;
   background-color: rgba(8, 3, 13, 0.38);
 }
 
@@ -990,37 +948,4 @@ body {
 
 .highlight-num {
   color: #fde047;
-}
-
-/* Force override default browser button styles */
-#btn-play,
-.insert-coin-prompt {
-  appearance: none !important;
-  -webkit-appearance: none !important;
-  background: transparent !important;
-  background-color: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  color: #fde047 !important;
-  font-family: 'Press Start 2P', monospace !important;
-  font-size: 12px !important;
-  padding: 16px 12px !important;
-  text-shadow: 2px 2px 0 #9a3412, -1px -1px 0 #000000 !important;
-  text-transform: uppercase !important;
-  letter-spacing: 1px !important;
-  cursor: pointer !important;
-  animation: coinBlink 0.85s steps(2, end) infinite !important;
-  width: 100% !important;
-  outline: none !important;
-}
-
-#btn-play:hover,
-.insert-coin-prompt:hover {
-  color: #ffffff !important;
-}
-
-/* Arcade blinking effect */
-@keyframes coinBlink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.25; }
 }
