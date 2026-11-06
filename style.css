@@ -1,25 +1,24 @@
 body {
     margin: 0;
     padding: 0;
-    background-color: #111;
+    background-color: #000;
     display: flex;
     justify-content: center;
-    align-items: center;
-    height: 100vh;
+    align-items: flex-start; /* Fix top gap */
+    height: 100dvh; /* Dynamic viewport height for mobile */
     font-family: 'Courier New', Courier, monospace; 
-    touch-action: none; /* Prevent screen zooming on mobile */
+    touch-action: none; 
+    overflow: hidden;
 }
 
 #game-container {
-    width: 100%;
-    max-width: 400px;
-    height: 100vh;
-    max-height: 700px;
+    width: 100vw;
+    max-width: 450px;
+    height: 100dvh;
     background-color: #2b1b3d;
     position: relative;
     overflow: hidden; 
-    border: 4px solid #fff;
-    box-shadow: 0 0 20px rgba(138, 43, 226, 0.5);
+    box-sizing: border-box;
 }
 
 #background {
@@ -34,28 +33,27 @@ body {
     image-rendering: pixelated; 
 }
 
-/* Rocky and Running Animation */
 #rocky {
     width: 120px;
     height: 120px;
     background-image: url('assets/rocky-run.png');
     background-size: contain;
+    background-position: center bottom;
     background-repeat: no-repeat;
     position: absolute;
-    bottom: 80px; /* Moved slightly up */
-    left: 140px; 
+    bottom: 90px; 
     image-rendering: pixelated;
-    transition: left 0.15s ease-out; 
+    transition: left 0.1s ease-out; /* Faster snappy movement */
     z-index: 100;
 }
 
 .running {
-    animation: runBounce 0.3s infinite alternate; /* Running effect */
+    animation: runBounce 0.25s infinite alternate; 
 }
 
 @keyframes runBounce {
     0% { transform: translateY(0); }
-    100% { transform: translateY(-12px); } /* Bounces up */
+    100% { transform: translateY(-10px); } 
 }
 
 #score-board {
@@ -87,7 +85,13 @@ body {
 }
 .candy { 
     background-image: url('assets/candy.png'); 
-    animation: wobbleCandy 0.5s infinite alternate;
+    transition: all 0.2s ease-out; /* For collection animation */
+}
+
+/* Candy collected animation */
+.collected {
+    transform: scale(2) translateY(-50px) !important;
+    opacity: 0;
 }
 
 @keyframes floatGhost {
@@ -95,12 +99,24 @@ body {
     100% { margin-top: -15px; }
 }
 
-@keyframes wobbleCandy {
-    0% { transform: rotate(-10deg); }
-    100% { transform: rotate(10deg); }
+/* Hit visual effect */
+#hit-flash {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: red;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 200;
+    transition: opacity 0.2s;
 }
 
-/* Mobile Controls UI */
+.flash-active {
+    opacity: 0.5 !important;
+}
+
 #mobile-controls {
     position: absolute;
     bottom: 20px;
@@ -113,25 +129,19 @@ body {
 }
 
 #mobile-controls button {
-    width: 70px;
-    height: 70px;
-    background-color: rgba(255, 255, 255, 0.2);
-    border: 2px solid rgba(255, 255, 255, 0.5);
+    width: 60px;
+    height: 60px;
+    background-color: rgba(255, 255, 255, 0.15);
+    border: 2px solid rgba(255, 255, 255, 0.4);
     border-radius: 50%;
     color: white;
-    font-size: 24px;
+    font-size: 20px;
     outline: none;
     cursor: pointer;
     backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
 }
 
 #mobile-controls button:active {
-    background-color: rgba(255, 255, 255, 0.5);
-}
-
-/* Hide buttons on larger screens if desired, but kept for testing */
-@media (min-width: 600px) {
-    #mobile-controls {
-        display: none;
-    }
+    background-color: rgba(255, 255, 255, 0.4);
 }
