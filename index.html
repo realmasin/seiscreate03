@@ -9,17 +9,21 @@
 <body>
     <div id="game-container">
         <div id="background"></div>
-        <div id="score-board">Score: <span id="score">0</span></div>
+        
+        <!-- UI Elements -->
+        <div id="ui-layer">
+            <div id="score-board">Score: <span id="score">0</span></div>
+            <div id="lives-board">Lives: <span id="lives">❤️❤️❤️</span></div>
+        </div>
         
         <div id="rocky" class="running"></div>
-        
         <div id="hit-flash"></div>
 
-        <!-- Added Jump Button -->
-        <div id="mobile-controls">
-            <button id="btn-left">◀</button>
-            <button id="btn-jump">▲</button>
-            <button id="btn-right">▶</button>
+        <!-- Game Over Screen -->
+        <div id="game-over-screen" class="hidden">
+            <h1>GAME OVER</h1>
+            <p>Score: <span id="final-score">0</span></p>
+            <button id="restart-btn">إعادة اللعب</button>
         </div>
     </div>
     <script src="game.js"></script>
