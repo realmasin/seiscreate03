@@ -7,29 +7,28 @@ let score = 0;
 let gameLoop;
 let isGameOver = false;
 let activeObjects = [];
+let particles = [];
 let spawnTimer = 0;
 
-let currentSpeedMultiplier = 1;
-let framesBetweenSpawns = 70; 
+let currentSpeedMultiplier = 1.2; 
+let framesBetweenSpawns = 60; 
 
-// Dynamic sizing and lane calculations for full road usage
 const containerWidth = gameContainer.offsetWidth;
 const containerHeight = gameContainer.offsetHeight;
 const rockyWidth = 120;
 
-// Lanes: Left edge, Center, Right edge
 const lanePositions = [
-    20,                                     // Left
-    (containerWidth / 2) - (rockyWidth / 2),// Center
-    containerWidth - rockyWidth - 20        // Right
+    20,                                     
+    (containerWidth / 2) - (rockyWidth / 2),
+    containerWidth - rockyWidth - 20        
 ]; 
 let currentLane = 1; 
 
-// Horizon exactly at the vanishing point in the background image
-const horizonY = containerHeight * 0.35; 
-const endY = containerHeight + 100; 
+// Horizon exactly matches the fog line in the new background
+const horizonY = containerHeight * 0.42; 
+const endY = containerHeight + 150; 
 const horizonX = containerWidth / 2; 
-const endXSpread = containerWidth * 0.45; // Wider spread at the bottom
+const endXSpread = containerWidth * 0.50; 
 
 function moveLeft() {
     if (!isGameOver && currentLane > 0) {
@@ -62,10 +61,29 @@ btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); moveRight()
 btnLeft.addEventListener('mousedown', moveLeft);
 btnRight.addEventListener('mousedown', moveRight);
 
+// Particle Illusion System
+function spawnParticle() {
+    if (Math.random() > 0.4) return; // Control density
+    
+    const p = document.createElement('div');
+    p.classList.add('speed-particle');
+    gameContainer.appendChild(p);
+    
+    // Spread randomly across the horizon
+    const randomSpread = (Math.random() - 0.5) * 2;
+    
+    particles.push({
+        element: p,
+        progress: 0.01,
+        spread: randomSpread
+    });
+}
+
 function spawnObject() {
     const lane = Math.floor(Math.random() * 3) - 1; 
     
-    const types = ['pumpkin', 'ghost'];
+    // Bats included in the enemy array
+    const types = ['pumpkin', 'ghost', 'bat'];
     const isCandy = Math.random() > 0.7; 
     const type = isCandy ? 'candy' : types[Math.floor(Math.random() * types.length)];
 
@@ -84,17 +102,15 @@ function spawnObject() {
         element: obj,
         lane: lane,
         type: type,
-        progress: 0, // Start exactly at horizon
+        progress: 0.01, 
         isCandy: isCandy,
         collected: false
     });
 }
 
-// AABB True Collision Detection
 function checkCollision(rect1, rect2) {
-    // Add tolerance to make hitboxes fair (don't die if just touching a pixel)
-    const toleranceX = 30;
-    const toleranceY = 20;
+    const toleranceX = 35;
+    const toleranceY = 25;
 
     return (
         rect1.left + toleranceX < rect2.right - toleranceX &&
@@ -107,21 +123,44 @@ function checkCollision(rect1, rect2) {
 function update() {
     if (isGameOver) return;
 
-    currentSpeedMultiplier = 1 + (score * 0.015);
-    framesBetweenSpawns = Math.max(25, 70 - (score * 0.8));
+    currentSpeedMultiplier = 1.2 + (score * 0.015);
+    framesBetweenSpawns = Math.max(20, 60 - (score * 0.8));
 
     spawnTimer++;
     if (spawnTimer > framesBetweenSpawns) { 
         spawnObject();
         spawnTimer = 0;
     }
+    
+    spawnParticle();
+
+    // Update Particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+        let p = particles[i];
+        p.progress += (0.005 + (p.progress * 0.02)) * currentSpeedMultiplier;
+        
+        if (p.progress >= 1.2) {
+            p.element.remove();
+            particles.splice(i, 1);
+            continue;
+        }
+        
+        const currentY = horizonY + (p.progress * (endY - horizonY));
+        const currentSpread = endXSpread * p.progress * 1.5; // Particles spread wider
+        const currentX = horizonX + (p.spread * currentSpread);
+        
+        p.element.style.left = currentX + 'px';
+        p.element.style.top = currentY + 'px';
+        p.element.style.transform = `scale(${p.progress * 2})`;
+    }
 
     const rockyRect = rocky.getBoundingClientRect();
 
+    // Update Game Objects
     for (let i = activeObjects.length - 1; i >= 0; i--) {
         let obj = activeObjects[i];
         
-        if (obj.collected) continue; // Skip logic if already collected
+        if (obj.collected) continue; 
 
         obj.progress += (0.003 + (obj.progress * 0.015)) * currentSpeedMultiplier; 
 
@@ -139,20 +178,18 @@ function update() {
         obj.element.style.left = (currentX - ((parseInt(obj.element.style.width) * scale) / 2)) + 'px';
         obj.element.style.top = (currentY - (parseInt(obj.element.style.height) * scale)) + 'px'; 
         
-        if (obj.type !== 'ghost') {
+        if (obj.type !== 'ghost' && obj.type !== 'bat') {
             obj.element.style.transform = `scale(${scale})`;
         } else {
-            // Preserve float animation for ghost
-            obj.element.style.transform = `scale(${scale}) translateY(-10px)`;
+            // Keep CSS animations intact for flying enemies
+            obj.element.style.transform = `scale(${scale}) translateY(-${scale * 20}px)`;
         }
 
-        // Real Collision Detection
-        if (obj.progress > 0.6) { // Only check when they get somewhat close
+        if (obj.progress > 0.6) { 
             const objRect = obj.element.getBoundingClientRect();
             
             if (checkCollision(rockyRect, objRect)) {
                 if (obj.isCandy) {
-                    // Visual feedback for candy
                     score += 10;
                     scoreElement.innerText = score;
                     obj.collected = true;
@@ -179,16 +216,15 @@ function gameOver() {
     rocky.classList.remove('running'); 
     rocky.style.backgroundImage = "url('assets/rocky-hit.png')"; 
     
-    // Screen flash effect
     hitFlash.classList.add('flash-active');
+    gameContainer.classList.add('shake-active'); // Screen shake applied
     
     cancelAnimationFrame(gameLoop);
     
     setTimeout(() => {
         alert('Game Over! Your Score: ' + score + '\nRefresh to play again.');
-    }, 300);
+    }, 400);
 }
 
-// Initialization
 updateRockyPosition();
 gameLoop = requestAnimationFrame(update);
