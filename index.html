@@ -3,14 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>ROCKY'S OUTRUN</title>
+  <title>SEISCREATE #03: ROCKYHALLOWEN</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
   <!-- Preload image assets -->
   <link rel="preload" as="image" href="assets/bg-road.png" />
-  <link rel="preload" as="image" href="assets/env-tree.png" />
-  <link rel="preload" as="image" href="assets/env-grave.png" />
   <link rel="preload" as="image" href="assets/rocky-run.png" />
   <link rel="preload" as="image" href="assets/rocky-jump.png" />
   <link rel="preload" as="image" href="assets/rocky-hit.png" />
@@ -29,36 +27,41 @@
     <div id="game-viewport">
       <!-- Game World Stage (Receives VHS grayscale/blur/glitch filter when paused) -->
       <div id="world-stage">
-        <!-- Z:1 = Static background road with horizon at X: 50%, Y: 45% -->
+        <!-- Static 9:16 background road with horizon at 45% height -->
         <img id="bg-road" src="assets/bg-road.png" alt="Halloween Road" draggable="false" />
 
-        <!-- Z:2 = Decorative Side Environment (assets/env-tree.png, assets/env-grave.png) -->
-        <div id="env-layer" aria-hidden="true"></div>
+        <!-- Blood Moon atmospheric tint (activates at Score >= 1000) -->
+        <div id="blood-moon-tint" aria-hidden="true"></div>
 
-        <!-- Z:3 = Ground speed lines (orange/yellow lane dividers rushing down) -->
+        <!-- Dynamic ground speed lines originating at the vanishing point -->
         <div id="speed-lines-layer" aria-hidden="true"></div>
 
-        <!-- Z:5 = Interactive Entities (Enemies and Collectibles) -->
-        <div id="entities-layer" aria-hidden="true"></div>
-
-        <!-- Z:8 = Warnings (Bat spawn indicator at vanishing point) -->
+        <!-- Horizon Bat Warning Layer (1s blinking red '!' before Bat spawns) -->
         <div id="warnings-layer" aria-hidden="true"></div>
 
-        <!-- Z:15 = Player (Rocky) + Shadows + Landing Dust -->
-        <div id="landing-dust-layer" aria-hidden="true"></div>
+        <!-- Dynamic pseudo-3D entities layer (enemies, candies, floating text, landing dust) -->
+        <div id="entities-layer" aria-hidden="true"></div>
+
+        <!-- Player character (Rocky) -->
         <div id="player-container">
           <div id="player-shadow"></div>
           <img id="player-sprite" src="assets/rocky-run.png" alt="Rocky" draggable="false" />
         </div>
       </div>
 
-      <!-- Z:25+ = Screen Flashes, CRT Overlay, VHS Effects, HUD, and UI Menus -->
-      <div id="blood-moon-tint" aria-hidden="true"></div>
-      <div id="lightning-flash" aria-hidden="true"></div>
-      <div id="damage-flash" aria-hidden="true"></div>
+      <!-- VHS Pause Glitch Tracking Bar Overlay -->
       <div id="vhs-pause-fx" aria-hidden="true"></div>
 
-      <!-- Transparent Floating HUD (Zero emojis, pure CSS pixel-art shapes) -->
+      <!-- Dynamic Weather & Main Menu Subtle Lightning Flash Overlay -->
+      <div id="lightning-flash" aria-hidden="true"></div>
+
+      <!-- Red screen flash overlay on taking damage & Game Over -->
+      <div id="damage-flash" aria-hidden="true"></div>
+
+      <!-- 90s Arcade CRT Scanline & Faint Flicker Overlay -->
+      <div id="crt-overlay" aria-hidden="true"></div>
+
+      <!-- Transparent Floating HUD (Zero emojis, pure CSS pixel-art icons) -->
       <header id="hud" class="hud-hidden">
         <div id="hud-left">
           <div id="lives-panel" aria-label="Lives">
@@ -67,7 +70,7 @@
             <div class="pixel-heart" data-index="2"></div>
           </div>
 
-          <!-- Shaking 2X COMBO Banner (Pure CSS box-shadow flame, no emoji) -->
+          <!-- Shaking 2x Combo UI Element (Pure CSS pixel flame + text) -->
           <div id="combo-banner" class="hidden" aria-live="polite">
             <span class="pixel-flame" aria-hidden="true"></span>
             <span class="combo-text">2X COMBO</span>
@@ -84,10 +87,7 @@
         </button>
       </header>
 
-      <!-- 90s Arcade CRT Scanline & Faint Flicker Overlay -->
-      <div id="crt-overlay" aria-hidden="true"></div>
-
-      <!-- Main Menu Overlay (Attract Mode, Watermark, Marquee & Blinking Start Prompt) -->
+      <!-- Main Menu Overlay (Attract Mode, Watermark, Marquee & Cinematic Start) -->
       <section id="main-menu-overlay" class="overlay-screen">
         <!-- Corner Watermark -->
         <div id="menu-watermark">&copy; masinonline</div>
@@ -120,10 +120,10 @@
           </div>
         </div>
 
-        <!-- Bottom Scrolling Developer Credits Marquee -->
+        <!-- Classic Arcade Scrolling Developer Credits Marquee -->
         <div id="credits-marquee" aria-label="Developer Credits">
           <div class="marquee-track">
-            <span>&copy; masinonline | Art &amp; Code for #SEISCREATE #03: ROCKYHALLOWEN</span>
+            <span>&copy; masinonline | #SEISCREATE #03: ROCKYHALLOWEN</span>
           </div>
         </div>
       </section>
@@ -176,4 +176,4 @@
 
   <script src="game.js"></script>
 </body>
-    </html>
+        </html>
