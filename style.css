@@ -1,183 +1,428 @@
+/* ==========================================================================
+   Rocky's Halloween OutRun - 90s Pseudo-3D Arcade Runner Stylesheet
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  /* Enforce 16-bit pixel art rendering across all game elements */
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+html,
 body {
-    margin: 0;
-    padding: 0;
-    background-color: #000;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    height: 100dvh;
-    font-family: 'Courier New', Courier, monospace; 
-    touch-action: none; /* Prevent browser scrolling on swipe */
-    overflow: hidden;
-    user-select: none;
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  background-color: #09040e;
+  font-family: 'Press Start 2P', monospace;
+  color: #fff7ed;
+  /* Prevent mobile browser zooming and pull-to-refresh */
+  touch-action: none;
+  overscroll-behavior: none;
 }
 
-#game-container {
+/* Center 9:16 arcade frame on desktop, fill 100dvh on mobile */
+#arcade-shell {
+  width: 100%;
+  height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, #1b0c2e 0%, #06020a 100%);
+}
+
+#game-viewport {
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+  max-width: calc(100dvh * (9 / 16));
+  aspect-ratio: 9 / 16;
+  overflow: hidden;
+  background-color: #120824;
+  box-shadow: 0 0 48px rgba(255, 107, 0, 0.25);
+  touch-action: none;
+}
+
+@media (max-aspect-ratio: 9/16) {
+  #game-viewport {
+    max-width: 100%;
     width: 100vw;
-    max-width: 450px;
     height: 100dvh;
-    background-color: #1a1a2e;
-    position: relative;
-    overflow: hidden; 
+  }
 }
 
-#background {
-    width: 100%;
-    height: 100%;
-    background-image: url('assets/bg-road.png');
-    background-size: cover;
-    background-position: center bottom;
-    position: absolute;
-    top: 0;
-    left: 0;
-    image-rendering: pixelated; 
-    z-index: 1;
+/* Static Road Background */
+#bg-road {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  z-index: 1;
+  pointer-events: none;
 }
 
-/* Ground Speed Illusion Lines */
+/* Subtle 90s CRT Scanline Overlay */
+#crt-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      rgba(18, 16, 16, 0) 50%,
+      rgba(0, 0, 0, 0.22) 50%
+    ),
+    radial-gradient(
+      circle at 50% 45%,
+      transparent 55%,
+      rgba(5, 2, 10, 0.55) 100%
+    );
+  background-size: 100% 4px, 100% 100%;
+}
+
+/* Dynamic Speed Lines Layer */
+#speed-lines-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+}
+
 .speed-line {
-    position: absolute;
-    background-color: rgba(255, 255, 255, 0.1);
-    height: 2px;
-    border-radius: 50%;
-    z-index: 2;
-    transform-origin: center;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 28px;
+  background: linear-gradient(to bottom, rgba(255, 166, 43, 0), #ff9e00 60%, #fff3b0 100%);
+  transform-origin: 50% 0%;
+  will-change: transform, opacity;
+  pointer-events: none;
+  box-shadow: 0 0 6px rgba(255, 145, 0, 0.75);
 }
 
-#ui-layer {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    right: 20px;
-    display: flex;
-    justify-content: space-between;
-    z-index: 110;
-    color: #fff;
-    font-size: 20px;
-    font-weight: bold;
-    text-shadow: 2px 2px 0px #000;
+/* Dynamic Entities Layer (Enemies & Candies) */
+#entities-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  overflow: hidden;
 }
 
-#rocky {
-    width: 120px;
-    height: 120px;
-    background-image: url('assets/rocky-run.png');
-    background-size: contain;
-    background-position: center bottom;
-    background-repeat: no-repeat;
-    position: absolute;
-    bottom: 90px; 
-    image-rendering: pixelated;
-    transition: left 0.1s ease-out, bottom 0.25s ease-out, transform 0.2s; 
-    z-index: 100;
+.entity {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 84px;
+  height: 84px;
+  transform-origin: 50% 100%;
+  will-change: transform, opacity;
+  pointer-events: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
 }
 
-.running {
-    animation: runBounce 0.2s infinite alternate; 
+.entity img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 4px 0 rgba(0, 0, 0, 0.55));
 }
 
-@keyframes runBounce {
-    0% { transform: translateY(0); }
-    100% { transform: translateY(-8px); } 
+/* Candy Collection Pop/Fade Animation */
+.candy-collected {
+  animation: candyPopFade 0.34s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
 }
 
-.jumping {
-    bottom: 220px !important; 
-    transform: scale(1.15); 
-    animation: none !important; 
-}
-
-/* Invincibility Flicker */
-.invulnerable {
-    animation: flicker 0.15s infinite alternate !important;
-}
-
-@keyframes flicker {
-    0% { opacity: 1; }
-    100% { opacity: 0.3; }
-}
-
-.game-object {
-    position: absolute;
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center bottom;
-    image-rendering: pixelated;
-    transform-origin: bottom center;
-    z-index: 50;
-}
-
-.pumpkin { background-image: url('assets/enemy-pumpkin.png'); }
-.ghost { background-image: url('assets/enemy-ghost.png'); }
-.bat { background-image: url('assets/enemy-bat.png'); }
-.candy { background-image: url('assets/candy.png'); transition: all 0.2s; }
-
-.collected {
-    transform: scale(3) translateY(-30px) !important;
+@keyframes candyPopFade {
+  0% {
+    opacity: 1;
+    filter: brightness(1.8) drop-shadow(0 0 10px #fde047);
+  }
+  50% {
+    opacity: 0.95;
+    transform: translate3d(var(--collect-x, 0px), calc(var(--collect-y, 0px) - 28px), 0)
+      translate(-50%, -100%) scale(calc(var(--collect-scale, 1) * 1.55));
+  }
+  100% {
     opacity: 0;
+    transform: translate3d(var(--collect-x, 0px), calc(var(--collect-y, 0px) - 54px), 0)
+      translate(-50%, -100%) scale(calc(var(--collect-scale, 1) * 1.9));
+  }
 }
 
-#hit-flash {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: #ff0000;
+/* Floating +10 Score Popup */
+.score-popup {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 22;
+  color: #fde047;
+  font-size: 14px;
+  text-shadow: 2px 2px 0 #7c2d12, -1px -1px 0 #000;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation: floatScoreUp 0.55s ease-out forwards;
+}
+
+@keyframes floatScoreUp {
+  0% {
+    opacity: 1;
+    transform: translate3d(var(--popup-x, 0px), var(--popup-y, 0px), 0) translate(-50%, -50%) scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: translate3d(var(--popup-x, 0px), calc(var(--popup-y, 0px) - 24px), 0) translate(-50%, -50%) scale(1.15);
+  }
+  100% {
     opacity: 0;
-    pointer-events: none;
-    z-index: 200;
-    transition: opacity 0.1s;
+    transform: translate3d(var(--popup-x, 0px), calc(var(--popup-y, 0px) - 48px), 0) translate(-50%, -50%) scale(1);
+  }
 }
 
-.flash-active { opacity: 0.5 !important; }
-
-/* Game Over UI */
-#game-over-screen {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.85);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    z-index: 300;
-    color: white;
+/* Player Character (Rocky) */
+#player-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 96px;
+  height: 96px;
+  z-index: 15;
+  transform-origin: 50% 100%;
+  will-change: transform, opacity;
+  pointer-events: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
 }
 
-#game-over-screen.hidden {
-    display: none;
+#player-sprite {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  z-index: 2;
+  filter: drop-shadow(0 4px 0 rgba(0, 0, 0, 0.7));
 }
 
-#game-over-screen h1 {
-    font-size: 40px;
-    color: #ff4757;
-    margin-bottom: 10px;
-    text-shadow: 2px 2px 0 #000;
+#player-shadow {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  width: 62%;
+  height: 14px;
+  background: rgba(0, 0, 0, 0.65);
+  border-radius: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
 }
 
-#game-over-screen p {
-    font-size: 24px;
-    margin-bottom: 30px;
+/* 1.5s Invincibility Flicker State */
+#player-container.invincible {
+  animation: invincibleFlicker 0.12s steps(2, end) infinite;
+}
+
+@keyframes invincibleFlicker {
+  0%, 100% {
+    opacity: 1;
+    filter: brightness(1.35);
+  }
+  50% {
+    opacity: 0.22;
+    filter: brightness(2) hue-rotate(-20deg);
+  }
+}
+
+/* Red Damage Screen Flash Overlay */
+#damage-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 26;
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.45) 0%, rgba(185, 28, 28, 0.82) 100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+#damage-flash.flash-active {
+  animation: damageFlashAnim 0.35s ease-out forwards;
+}
+
+@keyframes damageFlashAnim {
+  0% {
+    opacity: 0.92;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Top HUD (Hearts & Score) */
+#hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 28;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  background: linear-gradient(to bottom, rgba(9, 4, 14, 0.85) 0%, rgba(9, 4, 14, 0) 100%);
+  pointer-events: none;
+}
+
+#lives-panel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.heart {
+  font-size: 22px;
+  color: #ef4444;
+  text-shadow: 2px 2px 0 #450a0a, -1px -1px 0 #000;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.heart.lost {
+  color: #3f3f46;
+  opacity: 0.4;
+  transform: scale(0.8);
+  text-shadow: none;
+}
+
+#score-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.hud-label {
+  font-size: 10px;
+  color: #fdba74;
+  letter-spacing: 0.08em;
+  text-shadow: 2px 2px 0 #000;
+}
+
+#score-value {
+  font-size: 18px;
+  color: #fef08a;
+  letter-spacing: 0.05em;
+  text-shadow: 3px 3px 0 #7c2d12, -1px -1px 0 #000;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Brief Controls Toast */
+#controls-toast {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 24;
+  width: 90%;
+  text-align: center;
+  font-size: 9px;
+  line-height: 1.5;
+  color: #fed7aa;
+  background: rgba(15, 7, 28, 0.82);
+  border: 2px solid #ea580c;
+  padding: 8px 10px;
+  text-shadow: 1px 1px 0 #000;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+
+#controls-toast.fade-out {
+  opacity: 0;
+}
+
+/* Game Over Overlay */
+#game-over-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 35;
+  background: rgba(9, 4, 15, 0.86);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+#game-over-overlay.hidden {
+  display: none;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 320px;
+  background: #1a0b2e;
+  border: 4px solid #f97316;
+  box-shadow: 0 0 0 4px #000, 0 14px 0 #000;
+  padding: 28px 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.modal-title {
+  font-size: 24px;
+  color: #ef4444;
+  text-shadow: 3px 3px 0 #450a0a, -2px -2px 0 #000;
+  letter-spacing: 0.04em;
+}
+
+.modal-subtitle {
+  font-size: 11px;
+  color: #fdba74;
+  text-shadow: 2px 2px 0 #000;
+}
+
+#final-score-value {
+  font-size: 28px;
+  color: #fef08a;
+  text-shadow: 3px 3px 0 #7c2d12, -2px -2px 0 #000;
+  margin-bottom: 6px;
+  font-variant-numeric: tabular-nums;
 }
 
 #restart-btn {
-    padding: 15px 40px;
-    font-size: 20px;
-    font-family: inherit;
-    font-weight: bold;
-    background-color: #2ed573;
-    color: #000;
-    border: 3px solid #fff;
-    border-radius: 10px;
-    cursor: pointer;
-    box-shadow: 0 5px 15px rgba(46, 213, 115, 0.4);
-    transition: transform 0.1s;
+  width: 100%;
+  padding: 15px 18px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 13px;
+  color: #09040e;
+  background: #fb923c;
+  border: 3px solid #fff7ed;
+  box-shadow: 0 5px 0 #9a3412;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: transform 0.08s ease, background-color 0.12s ease;
+}
+
+#restart-btn:hover {
+  background: #fdba74;
 }
 
 #restart-btn:active {
-    transform: scale(0.95);
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 #9a3412;
 }
