@@ -2,12 +2,12 @@
  * SEISCREATE #03: ROCKYHALLOWEN - AAA Indie Pseudo-3D Vertical Arcade Runner
  * Features:
  * - OutRun Vanishing Point Projection (Horizon at 45% height)
- * - Cinematic Start transition with smooth speed-line acceleration from 0 to full speed
- * - Rolling mechanical score counter
- * - 2x Combo System (3 consecutive candies without taking damage)
- * - Near-Miss Bonus (+50 pts for last-moment dodges)
- * - Dynamic Weather Shift (0-500 Normal, 500-1000 Lightning Flashes, 1000+ Blood Moon)
- * - Pure CSS pixel-art HUD & strict haptics
+ * - Auto-Scoring based on survival distance + Accessible gradual difficulty curve
+ * - Cinematic Start transition & Main Menu ambient lightning
+ * - VHS Pause Mode (Grayscale, blur, scanline tracking glitch)
+ * - 1-Second Slow-Motion Death sequence -> Red Flash -> Detailed Game Over Stats Board
+ * - 1-Second Horizon Bat Warning ('!' indicator in target lane)
+ * - 2x Combo System, +20 Candy Floating Text at Rocky, +50 Near-Miss Bonus, 500/1000 Weather Phases
  */
 
 (() => {
@@ -30,36 +30,42 @@
 
   const STORAGE_KEY_HIGH_SCORE = 'seiscreate03_rockyhallowen_highscore';
 
-  // Engine Constants
+  // Engine Constants (Tuned for an accessible, fair, gradually scaling arcade experience)
   const CONFIG = {
-    HORIZON_Y_RATIO: 0.45,       // Vanishing point Y at 45% of screen height
-    VANISHING_X_RATIO: 0.50,     // Vanishing point X at center (50%)
-    PLAYER_Y_RATIO: 0.88,        // Player depth plane Y
-    LANE_SPREAD_RATIO: 0.30,     // Horizontal distance between lanes at player depth
-    PERSPECTIVE_EXPONENT: 2.15,  // Non-linear depth curve for OutRun road perspective
-    MIN_SPAWN_SCALE: 0.03,       // Initial scale at the vanishing point
-    FADE_IN_COMPLETE_Z: 0.18,    // Depth at which spawned entities reach full opacity
+    HORIZON_Y_RATIO: 0.45,          // Vanishing point Y at 45% of screen height
+    VANISHING_X_RATIO: 0.50,        // Vanishing point X at horizontal center (50%)
+    PLAYER_Y_RATIO: 0.88,           // Player depth plane Y
+    LANE_SPREAD_RATIO: 0.30,        // Horizontal distance between lanes at player plane
+    PERSPECTIVE_EXPONENT: 2.15,     // Non-linear depth curve for OutRun road perspective
+    MIN_SPAWN_SCALE: 0.03,          // Near-zero initial scale at the vanishing point
+    FADE_IN_COMPLETE_Z: 0.18,       // Depth at which spawned objects reach full opacity
     MAX_LIVES: 3,
+    AUTO_SCORE_INTERVAL_MS: 200,    // Automatic survival score tick interval
     BASE_CANDY_POINTS: 10,
     COMBO_CANDY_POINTS: 20,
-    COMBO_THRESHOLD: 3,          // 3 consecutive candies triggers 2X COMBO
+    COMBO_THRESHOLD: 3,             // 3 consecutive candies triggers 2X COMBO
     NEAR_MISS_POINTS: 50,
-    NEAR_MISS_WINDOW_MS: 320,    // Time window before impact that counts as a tight near-miss dodge
-    WEATHER_STORM_SCORE: 500,    // 500-1000 triggers random lightning flashes
-    WEATHER_BLOOD_SCORE: 1000,   // 1000+ triggers Blood Moon filter & speed surge
-    INVINCIBILITY_MS: 1500,      // 1.5s invincibility on hit
-    HIT_SPRITE_MS: 450,
-    RUN_FLIP_INTERVAL_MS: 125,   // 2-frame scaleX(-1) running animation cadence
-    CINEMATIC_ACCEL_MS: 1150,    // Smooth acceleration duration on Cinematic Start
-    JUMP_DURATION_MS: 580,
+    NEAR_MISS_WINDOW_MS: 330,       // Tight dodge window before impact for +50 Near-Miss
+    BAT_WARNING_DURATION_MS: 1000,  // Exactly 1.0s warning on the horizon before a Bat spawns
+    BAT_SPEED_MULTIPLIER: 1.32,     // Bats fly faster than regular enemies
+    SLOW_MO_DEATH_MS: 1000,         // 1.0s slow-motion effect when lives reach 0
+    SLOW_MO_TIME_SCALE: 0.22,       // Time dilation factor during slow-motion death
+    WEATHER_STORM_SCORE: 500,       // Score 500-1000 triggers random lightning flashes
+    WEATHER_BLOOD_SCORE: 1000,      // Score 1000+ triggers Blood Moon filter & speed boost
+    INVINCIBILITY_MS: 1500,         // 1.5s invincibility on non-lethal hit
+    HIT_SPRITE_MS: 460,
+    RUN_FLIP_INTERVAL_MS: 130,      // 2-frame scaleX(-1) running animation cadence
+    CINEMATIC_ACCEL_MS: 1200,       // Smooth speed-line acceleration duration on start
+    JUMP_DURATION_MS: 600,
     JUMP_HEIGHT_RATIO: 0.15,
     JUMP_SCALE_BOOST: 0.28,
     COLLISION_Z_MIN: 0.89,
     COLLISION_Z_MAX: 0.99,
     DESPAWN_Z: 1.24,
-    BASE_SPEED_Z: 0.56,
-    BASE_SPAWN_INTERVAL_MS: 950,
-    MIN_SPAWN_INTERVAL_MS: 280,
+    BASE_SPEED_Z: 0.42,             // Accessible, moderate starting speed
+    MAX_SPEED_MULTIPLIER: 2.15,     // Cap speed scaling so the game stays playable
+    BASE_SPAWN_INTERVAL_MS: 1250,   // Manageable initial spawn interval
+    MIN_SPAWN_INTERVAL_MS: 440,     // Fair minimum spawn interval floor
     SWIPE_THRESHOLD_PX: 26,
   };
 
@@ -68,6 +74,7 @@
   const bgRoadEl = document.getElementById('bg-road');
   const bloodMoonTintEl = document.getElementById('blood-moon-tint');
   const speedLinesLayerEl = document.getElementById('speed-lines-layer');
+  const warningsLayerEl = document.getElementById('warnings-layer');
   const entitiesLayerEl = document.getElementById('entities-layer');
   const playerContainerEl = document.getElementById('player-container');
   const playerSpriteEl = document.getElementById('player-sprite');
@@ -75,7 +82,7 @@
   const lightningFlashEl = document.getElementById('lightning-flash');
   const damageFlashEl = document.getElementById('damage-flash');
 
-  // HUD & Menus
+  // HUD & Menu Elements
   const hudEl = document.getElementById('hud');
   const scoreValueEl = document.getElementById('score-value');
   const comboBannerEl = document.getElementById('combo-banner');
@@ -97,6 +104,8 @@
   const gameOverOverlayEl = document.getElementById('game-over-overlay');
   const finalScoreValueEl = document.getElementById('final-score-value');
   const highScoreValueEl = document.getElementById('high-score-value');
+  const candiesCollectedValueEl = document.getElementById('candies-collected-value');
+  const maxComboValueEl = document.getElementById('max-combo-value');
   const gameoverRestartBtnEl = document.getElementById('gameover-restart-btn');
   const gameoverHomeBtnEl = document.getElementById('gameover-home-btn');
 
@@ -119,7 +128,7 @@
       const p = sound.play();
       if (p && typeof p.catch === 'function') p.catch(() => {});
     } catch {
-      // Ignore browser autoplay errors prior to interaction
+      // Ignore browser autoplay restrictions prior to user interaction
     }
   }
 
@@ -136,20 +145,24 @@
 
   // Mutable Game State
   const state = {
-    mode: 'MENU',                // 'MENU' | 'PLAYING' | 'PAUSED' | 'GAMEOVER'
-    targetScore: 0,              // Actual gameplay score
-    displayScore: 0,             // Rolling mechanical display score
+    mode: 'MENU',                // 'MENU' | 'PLAYING' | 'PAUSED' | 'DYING' | 'GAMEOVER'
+    targetScore: 0,              // True score (auto-scoring + candies + near-misses)
+    displayScore: 0,             // Rolling mechanical score counter
     highScore: 0,
     lives: CONFIG.MAX_LIVES,
-    consecutiveCandies: 0,       // Tracks 2x combo streak
+    candiesCollected: 0,         // Total candies collected this run
+    consecutiveCandies: 0,       // Current unbroken candy streak
+    maxCombo: 0,                 // Highest consecutive candy streak this run
     elapsedMs: 0,
     lastFrameTime: 0,
-    cinematicProgress: 0,        // 0 (idle) -> 1 (full speed after cinematic start)
+    cinematicProgress: 0,        // 0 -> 1 smooth acceleration on Cinematic Start
+    autoScoreTimerMs: 0,
     spawnTimerMs: 0,
     speedLineTimerMs: 0,
     runFlipTimerMs: 0,
     runFlipped: false,
-    lightningTimerMs: 1800,
+    lightningTimerMs: 2400,
+    slowMoRemainingMs: 0,
     lastSpawnLane: null,
     lastLaneChangeTimeMs: -9999,
     previousLane: 0,
@@ -168,6 +181,7 @@
       currentSprite: ASSETS.rockyRun,
     },
     entities: [],
+    pendingBatWarnings: [],
     speedLines: [],
   };
 
@@ -219,7 +233,8 @@
   }
 
   /**
-   * Computes current speed and spawn intervals based on score, weather phase, and cinematic ramp.
+   * Accessible Difficulty Curve:
+   * Starts at a moderate, manageable speed and scales SLOWLY with score.
    */
   function getDifficultyParams() {
     if (state.mode === 'MENU') {
@@ -230,30 +245,44 @@
       };
     }
 
-    const scoreFactor = state.targetScore / 100;
-    const bloodMoonBoost = state.targetScore >= CONFIG.WEATHER_BLOOD_SCORE ? 0.48 : 0;
-    const rawMultiplier = 1 + (scoreFactor * 0.22) + bloodMoonBoost;
+    // Gradual scaling: +10% speed per 250 points, plus Blood Moon boost at 1000+
+    const gentleScoreFactor = state.targetScore / 250;
+    const bloodMoonBoost = state.targetScore >= CONFIG.WEATHER_BLOOD_SCORE ? 0.28 : 0;
+    const speedMultiplier = Math.min(
+      CONFIG.MAX_SPEED_MULTIPLIER,
+      1 + (gentleScoreFactor * 0.10) + bloodMoonBoost
+    );
 
-    // Multiply by cinematicProgress (0 -> 1) so speed lines smoothly accelerate from 0 on start
     const accelEase = state.cinematicProgress * state.cinematicProgress * (3 - 2 * state.cinematicProgress);
-    const speedZ = CONFIG.BASE_SPEED_Z * rawMultiplier * Math.max(0.05, accelEase);
-    const particleSpeedZ = CONFIG.BASE_SPEED_Z * rawMultiplier * 1.55 * accelEase;
+    const speedZ = CONFIG.BASE_SPEED_Z * speedMultiplier * Math.max(0.05, accelEase);
+    const particleSpeedZ = CONFIG.BASE_SPEED_Z * speedMultiplier * 1.5 * accelEase;
 
     const spawnIntervalMs = Math.max(
       CONFIG.MIN_SPAWN_INTERVAL_MS,
-      CONFIG.BASE_SPAWN_INTERVAL_MS / (1 + scoreFactor * 0.28 + bloodMoonBoost * 0.5)
+      CONFIG.BASE_SPAWN_INTERVAL_MS / (1 + gentleScoreFactor * 0.12 + bloodMoonBoost * 0.25)
     );
 
     return { speedZ, particleSpeedZ, spawnIntervalMs };
   }
 
   /**
-   * Updates Dynamic Weather Shift:
-   * - 0-499: Normal purple background
-   * - 500-999: Random white lightning screen flashes
-   * - 1000+: Blood Moon deep blood-red filter + drastic speed surge
+   * Handles Main Menu subtle lightning flashes and Gameplay Dynamic Weather Shift:
+   * - Score 0-500: Normal environment
+   * - Score 500-1000: Random white screen lightning flashes
+   * - Score 1000+: Blood Moon deep blood-red filter + speed boost
    */
-  function updateWeatherSystem(dtMs) {
+  function updateWeatherAndMenuLightning(dtMs) {
+    if (state.mode === 'MENU') {
+      state.lightningTimerMs -= dtMs;
+      if (state.lightningTimerMs <= 0) {
+        lightningFlashEl.classList.remove('subtle-strike', 'strike-active');
+        void lightningFlashEl.offsetWidth;
+        lightningFlashEl.classList.add('subtle-strike');
+        state.lightningTimerMs = 2600 + Math.random() * 3400;
+      }
+      return;
+    }
+
     const score = state.targetScore;
     const isBloodMoon = score >= CONFIG.WEATHER_BLOOD_SCORE;
     const isStormPhase = score >= CONFIG.WEATHER_STORM_SCORE && score < CONFIG.WEATHER_BLOOD_SCORE;
@@ -264,12 +293,10 @@
     if (isStormPhase && state.mode === 'PLAYING') {
       state.lightningTimerMs -= dtMs;
       if (state.lightningTimerMs <= 0) {
-        // Trigger white lightning screen flash
-        lightningFlashEl.classList.remove('strike-active');
+        lightningFlashEl.classList.remove('subtle-strike', 'strike-active');
         void lightningFlashEl.offsetWidth;
         lightningFlashEl.classList.add('strike-active');
-        // Schedule next random lightning bolt between 1.8s and 4.4s
-        state.lightningTimerMs = 1800 + Math.random() * 2600;
+        state.lightningTimerMs = 2000 + Math.random() * 2800;
       }
     }
   }
@@ -296,9 +323,6 @@
     }
   }
 
-  /**
-   * Updates lives hearts and 2x combo banner.
-   */
   function syncHudStatus() {
     heartEls.forEach((heartEl, idx) => {
       heartEl.classList.toggle('lost', idx >= state.lives);
@@ -308,12 +332,12 @@
   }
 
   /**
-   * Rolling mechanical score counter: increments displayScore smoothly toward targetScore.
+   * Rolling mechanical score counter: increments displayScore rapidly toward targetScore.
    */
   function updateRollingScore(dtMs) {
     if (state.displayScore < state.targetScore) {
       const diff = state.targetScore - state.displayScore;
-      const step = Math.max(1, Math.ceil((diff * dtMs) / 95));
+      const step = Math.max(1, Math.ceil((diff * dtMs) / 85));
       state.displayScore = Math.min(state.targetScore, state.displayScore + step);
       scoreValueEl.textContent = String(state.displayScore).padStart(5, '0');
     } else if (state.displayScore > state.targetScore) {
@@ -323,7 +347,7 @@
   }
 
   /**
-   * Spawns floating text (+10, +20, or NEAR MISS! +50) at Rocky's current position.
+   * Spawns floating text (+20 at Rocky's position on candy collect, or NEAR MISS!).
    */
   function spawnFloatingTextAtRocky(text, variantClass = '') {
     const el = document.createElement('div');
@@ -337,12 +361,9 @@
 
     window.setTimeout(() => {
       if (el.parentNode) el.parentNode.removeChild(el);
-    }, 620);
+    }, 650);
   }
 
-  /**
-   * Moves Rocky left or right and records the timestamp for Near-Miss detection.
-   */
   function changeLane(direction) {
     if (state.mode !== 'PLAYING') return;
     const nextLane = Math.max(-1, Math.min(1, state.player.lane + direction));
@@ -353,9 +374,6 @@
     }
   }
 
-  /**
-   * Initiates Rocky's jump and records jump start time for Near-Miss detection.
-   */
   function triggerJump() {
     if (state.mode !== 'PLAYING' || state.player.isJumping) return;
     state.player.isJumping = true;
@@ -370,7 +388,7 @@
   }
 
   /**
-   * Spawns a dynamic ground speed line at the vanishing point.
+   * Spawns a ground speed line at the vanishing point.
    */
   function spawnSpeedLine(initialZ = 0.01) {
     const el = document.createElement('div');
@@ -399,42 +417,39 @@
   }
 
   /**
-   * Spawns an enemy or candy at the vanishing point with fade-in and scale-up animation.
+   * Spawns a blinking red '!' warning on the horizon in the target lane exactly 1s before a Bat spawns.
    */
-  function spawnEntity() {
-    const lanes = [-1, 0, 1];
-    let lane = lanes[Math.floor(Math.random() * lanes.length)];
+  function scheduleBatWithWarning(lane) {
+    const warnEl = document.createElement('div');
+    warnEl.className = 'bat-warning-indicator';
+    warnEl.textContent = '!';
 
-    if (lane === state.lastSpawnLane && Math.random() < 0.65) {
-      const others = lanes.filter((l) => l !== lane);
-      lane = others[Math.floor(Math.random() * others.length)];
-    }
-    state.lastSpawnLane = lane;
+    const warnX = metrics.vanishingX + (lane * metrics.laneSpread * 0.28);
+    const warnY = metrics.horizonY - 6;
+    warnEl.style.left = `${warnX}px`;
+    warnEl.style.top = `${warnY}px`;
 
-    // 35% Candy, 29% Pumpkin (ground), 18% Ghost (flying), 18% Bat (flying)
-    const roll = Math.random();
-    let type = 'pumpkin';
-    let isFlying = false;
-    let isCollectible = false;
+    warningsLayerEl.appendChild(warnEl);
+
+    state.pendingBatWarnings.push({
+      el: warnEl,
+      lane,
+      remainingMs: CONFIG.BAT_WARNING_DURATION_MS,
+    });
+  }
+
+  /**
+   * Creates an entity (Pumpkin, Ghost, Bat, or Candy) at the vanishing point.
+   */
+  function createEntityAtHorizon(type, lane) {
+    const isFlying = type === 'ghost' || type === 'bat';
+    const isCollectible = type === 'candy';
+    const speedFactor = type === 'bat' ? CONFIG.BAT_SPEED_MULTIPLIER : 1.0;
+
     let asset = ASSETS.enemyPumpkin;
-
-    if (roll < 0.35) {
-      type = 'candy';
-      isCollectible = true;
-      asset = ASSETS.candy;
-    } else if (roll < 0.64) {
-      type = 'pumpkin';
-      isFlying = false;
-      asset = ASSETS.enemyPumpkin;
-    } else if (roll < 0.82) {
-      type = 'ghost';
-      isFlying = true;
-      asset = ASSETS.enemyGhost;
-    } else {
-      type = 'bat';
-      isFlying = true;
-      asset = ASSETS.enemyBat;
-    }
+    if (type === 'candy') asset = ASSETS.candy;
+    else if (type === 'ghost') asset = ASSETS.enemyGhost;
+    else if (type === 'bat') asset = ASSETS.enemyBat;
 
     const el = document.createElement('div');
     el.className = 'entity';
@@ -457,6 +472,7 @@
       type,
       lane,
       z: 0,
+      speedFactor,
       isFlying,
       isCollectible,
       resolved: false,
@@ -467,14 +483,66 @@
   }
 
   /**
-   * Collects candy: increments combo counter, awards +10 (or +20 in 2x combo),
-   * spawns floating text at Rocky's position, plays sfx-collect.mp3, NO vibration.
+   * Decides what entity to spawn next (or schedules a 1-second Bat horizon warning).
+   */
+  function spawnNextWaveItem() {
+    const lanes = [-1, 0, 1];
+    let lane = lanes[Math.floor(Math.random() * lanes.length)];
+
+    if (lane === state.lastSpawnLane && Math.random() < 0.65) {
+      const others = lanes.filter((l) => l !== lane);
+      lane = others[Math.floor(Math.random() * others.length)];
+    }
+    state.lastSpawnLane = lane;
+
+    // 36% Candy, 30% Pumpkin (ground), 18% Ghost (flying), 16% Bat (fast flying with 1s warning)
+    const roll = Math.random();
+    if (roll < 0.36) {
+      createEntityAtHorizon('candy', lane);
+    } else if (roll < 0.66) {
+      createEntityAtHorizon('pumpkin', lane);
+    } else if (roll < 0.84) {
+      createEntityAtHorizon('ghost', lane);
+    } else {
+      scheduleBatWithWarning(lane);
+    }
+  }
+
+  /**
+   * Updates active 1-second Bat horizon warnings and spawns the Bat when timer hits 0.
+   */
+  function updateBatWarnings(dtMs) {
+    for (let i = state.pendingBatWarnings.length - 1; i >= 0; i--) {
+      const warn = state.pendingBatWarnings[i];
+      warn.remainingMs -= dtMs;
+
+      // Keep warning aligned if viewport resizes
+      const warnX = metrics.vanishingX + (warn.lane * metrics.laneSpread * 0.28);
+      const warnY = metrics.horizonY - 6;
+      warn.el.style.left = `${warnX}px`;
+      warn.el.style.top = `${warnY}px`;
+
+      if (warn.remainingMs <= 0) {
+        if (warn.el.parentNode) warn.el.parentNode.removeChild(warn.el);
+        state.pendingBatWarnings.splice(i, 1);
+        createEntityAtHorizon('bat', warn.lane);
+      }
+    }
+  }
+
+  /**
+   * Collects candy: updates stats & combo, spawns floating "+20" text at Rocky, plays collect sfx, NO vibration.
    */
   function collectCandy(entity, screenX, screenY, scale) {
     entity.resolved = true;
     entity.removing = true;
 
+    state.candiesCollected += 1;
     state.consecutiveCandies += 1;
+    if (state.consecutiveCandies > state.maxCombo) {
+      state.maxCombo = state.consecutiveCandies;
+    }
+
     const isCombo = state.consecutiveCandies >= CONFIG.COMBO_THRESHOLD;
     const pointsAwarded = isCombo ? CONFIG.COMBO_CANDY_POINTS : CONFIG.BASE_CANDY_POINTS;
 
@@ -487,7 +555,8 @@
     entity.el.style.setProperty('--collect-scale', String(scale));
     entity.el.classList.add('candy-collected');
 
-    spawnFloatingTextAtRocky(`+${pointsAwarded}`, isCombo ? 'combo-pts' : '');
+    // Spawn floating yellow "+20" text at Rocky's position
+    spawnFloatingTextAtRocky('+20', isCombo ? 'combo-pts' : '');
 
     window.setTimeout(() => {
       if (entity.el.parentNode) entity.el.parentNode.removeChild(entity.el);
@@ -495,24 +564,26 @@
   }
 
   /**
-   * Awards +50 Near-Miss bonus when Rocky dodges an enemy by a tight margin.
+   * Awards +50 Near-Miss bonus and spawns floating "NEAR MISS!" text.
    */
   function triggerNearMissBonus() {
     state.targetScore += CONFIG.NEAR_MISS_POINTS;
-    spawnFloatingTextAtRocky('NEAR MISS! +50', 'near-miss-pts');
+    spawnFloatingTextAtRocky('NEAR MISS!', 'near-miss-pts');
   }
 
   /**
-   * Handles taking damage from an enemy: resets combo, -1 life, plays sfx-hit.mp3,
-   * triggers navigator.vibrate(200), screen shake + red flash, and 1.5s invincibility.
+   * Handles taking damage from an enemy:
+   * - Resets combo
+   * - Plays sfx-hit.mp3
+   * - Strong haptic feedback navigator.vibrate(200) + severe camera shake
+   * - If lives reach 0, triggers 1-second slow-motion death before red flash & Game Over stats
    */
   function handlePlayerHit(entity) {
     entity.resolved = true;
     entity.nearMissChecked = true;
 
-    if (state.player.invincibleRemainingMs > 0) return;
+    if (state.player.invincibleRemainingMs > 0 || state.mode !== 'PLAYING') return;
 
-    // Reset 2x Combo streak on damage
     state.consecutiveCandies = 0;
     state.lives = Math.max(0, state.lives - 1);
     syncHudStatus();
@@ -523,25 +594,34 @@
       try {
         navigator.vibrate(200);
       } catch {
-        // Ignore on unsupported browsers
+        // Ignore on unsupported devices
       }
     }
 
-    damageFlashEl.classList.remove('flash-active');
+    // Trigger severe camera shake
     viewportEl.classList.remove('camera-shake');
+    void viewportEl.offsetWidth;
+    viewportEl.classList.add('camera-shake');
+
+    playerSpriteEl.classList.remove('flip-x');
+    setPlayerSprite(ASSETS.rockyHit);
+
+    if (state.lives <= 0) {
+      // Enter 1-second slow-motion death sequence, then flash red & show Game Over stats
+      state.mode = 'DYING';
+      state.slowMoRemainingMs = CONFIG.SLOW_MO_DEATH_MS;
+      state.player.hitSpriteRemainingMs = CONFIG.SLOW_MO_DEATH_MS + 200;
+      return;
+    }
+
+    // Non-lethal hit: red flash + 1.5s invincibility flicker
+    damageFlashEl.classList.remove('flash-active');
     void damageFlashEl.offsetWidth;
     damageFlashEl.classList.add('flash-active');
-    viewportEl.classList.add('camera-shake');
 
     state.player.hitSpriteRemainingMs = CONFIG.HIT_SPRITE_MS;
     state.player.invincibleRemainingMs = CONFIG.INVINCIBILITY_MS;
-    playerSpriteEl.classList.remove('flip-x');
-    setPlayerSprite(ASSETS.rockyHit);
     playerContainerEl.classList.add('invincible');
-
-    if (state.lives <= 0) {
-      triggerGameOver();
-    }
   }
 
   /**
@@ -577,8 +657,7 @@
       }
     }
 
-    // In MENU mode Rocky idles; once PLAYING starts, Rocky immediately runs with 2-frame flip
-    if (p.hitSpriteRemainingMs > 0) {
+    if (p.hitSpriteRemainingMs > 0 || state.mode === 'DYING') {
       setPlayerSprite(ASSETS.rockyHit);
       playerSpriteEl.classList.remove('flip-x');
     } else if (p.isJumping) {
@@ -643,7 +722,7 @@
   }
 
   /**
-   * Updates enemies and candies, smooth spawn fade-in, collisions, and Near-Miss detection.
+   * Updates enemies and candies, smooth fade-in from vanishing point, hitboxes, and Near-Miss bonus.
    */
   function updateEntities(dtSec, speedZ) {
     for (let i = state.entities.length - 1; i >= 0; i--) {
@@ -654,7 +733,7 @@
         continue;
       }
 
-      entity.z += speedZ * dtSec;
+      entity.z += speedZ * entity.speedFactor * dtSec;
 
       if (entity.z >= CONFIG.DESPAWN_Z) {
         if (entity.el.parentNode) entity.el.parentNode.removeChild(entity.el);
@@ -673,14 +752,15 @@
 
       const renderY = proj.screenY - elevationOffset;
 
-      // Smooth fade-in from the vanishing point so enemies never snap into existence
       const fadeInOpacity = Math.min(1, entity.z / CONFIG.FADE_IN_COMPLETE_Z);
       entity.el.style.opacity = String(fadeInOpacity.toFixed(2));
       entity.el.style.zIndex = String(Math.floor(entity.z * 16));
       entity.el.style.transform =
         `translate3d(${proj.screenX}px, ${renderY}px, 0) translate(-50%, -100%) scale(${proj.scale.toFixed(4)})`;
 
-      // Collision Window Check
+      if (state.mode !== 'PLAYING') continue;
+
+      // Accurate Lane + Depth Hitbox Check
       if (
         !entity.resolved &&
         entity.z >= CONFIG.COLLISION_Z_MIN &&
@@ -692,14 +772,12 @@
         } else if (entity.isFlying) {
           handlePlayerHit(entity);
         } else {
-          // Ground pumpkin: dodged if jumping
           const dodgedByJump = state.player.isJumping && state.player.jumpArc > 0.22;
           if (!dodgedByJump) {
             handlePlayerHit(entity);
           } else {
             entity.resolved = true;
             entity.nearMissChecked = true;
-            // If player jumped at the very last moment before the pumpkin, award Near-Miss
             if (state.elapsedMs - state.player.jumpStartTimeMs <= CONFIG.NEAR_MISS_WINDOW_MS) {
               triggerNearMissBonus();
             }
@@ -707,7 +785,7 @@
         }
       }
 
-      // Near-Miss Detection when an enemy just passes the collision plane without hitting Rocky
+      // Near-Miss Check as enemy passes player depth
       if (
         !entity.isCollectible &&
         !entity.resolved &&
@@ -715,15 +793,16 @@
         entity.z > CONFIG.COLLISION_Z_MAX
       ) {
         entity.nearMissChecked = true;
-        const dodgedLastSecondFromLane =
+        const dodgedLastMoment =
           state.previousLane === entity.lane &&
           state.player.lane !== entity.lane &&
           state.elapsedMs - state.lastLaneChangeTimeMs <= CONFIG.NEAR_MISS_WINDOW_MS;
 
-        const tightVisualProximity = Math.abs(state.player.visualLane - entity.lane) < 0.62 &&
+        const tightVisualMargin =
+          Math.abs(state.player.visualLane - entity.lane) < 0.62 &&
           state.player.lane !== entity.lane;
 
-        if (dodgedLastSecondFromLane || tightVisualProximity) {
+        if (dodgedLastMoment || tightVisualMargin) {
           triggerNearMissBonus();
         }
       }
@@ -742,36 +821,62 @@
       state.lastFrameTime = timestamp;
     }
 
-    const dtMs = Math.min(50, Math.max(0, timestamp - state.lastFrameTime));
-    const dtSec = dtMs / 1000;
+    const rawDtMs = Math.min(50, Math.max(0, timestamp - state.lastFrameTime));
     state.lastFrameTime = timestamp;
+
+    // Apply slow-motion time scale during 1s DYING phase
+    const timeScale = state.mode === 'DYING' ? CONFIG.SLOW_MO_TIME_SCALE : 1.0;
+    const dtMs = rawDtMs * timeScale;
+    const dtSec = dtMs / 1000;
     state.elapsedMs += dtMs;
 
-    if (state.mode === 'PLAYING') {
-      // Smoothly ramp cinematic acceleration from 0 to 1
-      if (state.cinematicProgress < 1) {
-        state.cinematicProgress = Math.min(1, state.cinematicProgress + dtMs / CONFIG.CINEMATIC_ACCEL_MS);
+    updateWeatherAndMenuLightning(rawDtMs);
+
+    if (state.mode === 'PLAYING' || state.mode === 'DYING') {
+      if (state.mode === 'PLAYING' && state.cinematicProgress < 1) {
+        state.cinematicProgress = Math.min(1, state.cinematicProgress + rawDtMs / CONFIG.CINEMATIC_ACCEL_MS);
       }
 
       const { speedZ, particleSpeedZ, spawnIntervalMs } = getDifficultyParams();
 
+      // Auto-Scoring based on time/distance survived
+      if (state.mode === 'PLAYING') {
+        state.autoScoreTimerMs += rawDtMs;
+        if (state.autoScoreTimerMs >= CONFIG.AUTO_SCORE_INTERVAL_MS) {
+          const ticks = Math.floor(state.autoScoreTimerMs / CONFIG.AUTO_SCORE_INTERVAL_MS);
+          state.autoScoreTimerMs %= CONFIG.AUTO_SCORE_INTERVAL_MS;
+          state.targetScore += ticks;
+        }
+      }
+
       state.speedLineTimerMs += dtMs;
-      const speedLineInterval = Math.max(38, 92 / Math.max(0.25, particleSpeedZ / CONFIG.BASE_SPEED_Z));
+      const speedLineInterval = Math.max(40, 95 / Math.max(0.25, particleSpeedZ / CONFIG.BASE_SPEED_Z));
       while (state.speedLineTimerMs >= speedLineInterval) {
         state.speedLineTimerMs -= speedLineInterval;
         spawnSpeedLine(0.01);
       }
 
-      state.spawnTimerMs += dtMs;
-      if (state.spawnTimerMs >= spawnIntervalMs) {
-        state.spawnTimerMs %= spawnIntervalMs;
-        spawnEntity();
+      if (state.mode === 'PLAYING') {
+        state.spawnTimerMs += dtMs;
+        if (state.spawnTimerMs >= spawnIntervalMs) {
+          state.spawnTimerMs %= spawnIntervalMs;
+          spawnNextWaveItem();
+        }
+        updateBatWarnings(dtMs);
       }
 
       updateSpeedLines(dtSec, particleSpeedZ);
       updateEntities(dtSec, speedZ);
-      updateRollingScore(dtMs);
-      updateWeatherSystem(dtMs);
+      updateRollingScore(rawDtMs);
+
+      // Handle 1-second slow-motion death completion -> Red Flash -> Game Over Stats
+      if (state.mode === 'DYING') {
+        state.slowMoRemainingMs -= rawDtMs;
+        if (state.slowMoRemainingMs <= 0) {
+          completeGameOverSequence();
+          return;
+        }
+      }
     }
 
     updatePlayer(dtMs);
@@ -779,27 +884,33 @@
   }
 
   /**
-   * Resets world entities and player state.
+   * Resets world entities, warnings, and player state cleanly.
    */
   function resetWorldState() {
     updateViewportMetrics();
     entitiesLayerEl.innerHTML = '';
+    warningsLayerEl.innerHTML = '';
     speedLinesLayerEl.innerHTML = '';
 
     state.entities = [];
+    state.pendingBatWarnings = [];
     state.speedLines = [];
     state.targetScore = 0;
     state.displayScore = 0;
     state.lives = CONFIG.MAX_LIVES;
+    state.candiesCollected = 0;
     state.consecutiveCandies = 0;
+    state.maxCombo = 0;
     state.elapsedMs = 0;
     state.lastFrameTime = 0;
     state.cinematicProgress = 0;
+    state.autoScoreTimerMs = 0;
     state.spawnTimerMs = 0;
     state.speedLineTimerMs = 0;
     state.runFlipTimerMs = 0;
     state.runFlipped = false;
-    state.lightningTimerMs = 1800;
+    state.lightningTimerMs = 2200;
+    state.slowMoRemainingMs = 0;
     state.lastSpawnLane = null;
     state.lastLaneChangeTimeMs = -9999;
     state.previousLane = 0;
@@ -817,7 +928,7 @@
     playerContainerEl.classList.remove('invincible');
     playerSpriteEl.classList.remove('flip-x');
     damageFlashEl.classList.remove('flash-active');
-    lightningFlashEl.classList.remove('strike-active');
+    lightningFlashEl.classList.remove('strike-active', 'subtle-strike');
     bgRoadEl.classList.remove('blood-moon');
     bloodMoonTintEl.classList.remove('active');
     viewportEl.classList.remove('camera-shake', 'is-paused');
@@ -827,15 +938,12 @@
     syncHudStatus();
     updatePlayer(0);
 
-    // Seed stationary perspective speed lines ready to accelerate on Cinematic Start
+    // Seed stationary speed lines ready to accelerate on Cinematic Start
     for (let i = 0; i < 8; i++) {
       spawnSpeedLine((i + 1) * 0.11);
     }
   }
 
-  /**
-   * Enters Main Menu idle state (Rocky idles on the road).
-   */
   function enterMainMenu() {
     resetWorldState();
     state.mode = 'MENU';
@@ -850,8 +958,8 @@
   }
 
   /**
-   * Triggers Cinematic Start: Main Menu smoothly fades out while Rocky immediately starts
-   * running and the ground speed lines accelerate from 0 to full speed.
+   * Cinematic Start: UI fades out smoothly, Rocky immediately starts running,
+   * and ground speed lines smoothly accelerate from 0.
    */
   function triggerCinematicStart() {
     if (state.mode === 'PLAYING') return;
@@ -863,7 +971,6 @@
     gameOverOverlayEl.classList.add('hidden');
     hudEl.classList.remove('hud-hidden');
 
-    // Smoothly fade out the Main Menu without cutting to black
     mainMenuOverlayEl.classList.add('fade-out');
     window.setTimeout(() => {
       if (state.mode === 'PLAYING') {
@@ -890,19 +997,34 @@
     window.requestAnimationFrame(tick);
   }
 
-  function triggerGameOver() {
+  /**
+   * Called after the 1-second slow-motion death finishes:
+   * Triggers a red screen flash and displays the detailed Game Over Stats Board.
+   */
+  function completeGameOverSequence() {
     state.mode = 'GAMEOVER';
     playerContainerEl.classList.remove('invincible');
+    warningsLayerEl.innerHTML = '';
+    state.pendingBatWarnings = [];
+
+    // Red flash at the end of the 1s slow-motion sequence
+    damageFlashEl.classList.remove('flash-active');
+    void damageFlashEl.offsetWidth;
+    damageFlashEl.classList.add('flash-active');
+
     saveHighScore(state.targetScore);
 
     scoreValueEl.textContent = String(state.targetScore).padStart(5, '0');
     finalScoreValueEl.textContent = String(state.targetScore);
     highScoreValueEl.textContent = String(state.highScore);
+    candiesCollectedValueEl.textContent = String(state.candiesCollected);
+    maxComboValueEl.textContent = String(state.maxCombo);
+
     gameOverOverlayEl.classList.remove('hidden');
   }
 
   function bindEvents() {
-    // Main Menu Buttons
+    // Main Menu Buttons (No vibration on menu clicks)
     insertCoinBtnEl.addEventListener('click', () => {
       playSfx('click');
       triggerCinematicStart();
@@ -942,7 +1064,7 @@
       enterMainMenu();
     });
 
-    // Game Over Buttons
+    // Game Over Overlay Buttons
     gameoverRestartBtnEl.addEventListener('click', () => {
       playSfx('click');
       triggerCinematicStart();
