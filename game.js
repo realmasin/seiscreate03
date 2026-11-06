@@ -1,15 +1,3 @@
-/**
- * SEISCREATE #03: ROCKYHALLOWEN - AAA Indie Pseudo-3D Vertical Arcade Runner
- * Features:
- * - OutRun Vanishing Point Projection (Horizon at 45% height)
- * - Auto-Scoring based on survival distance + Accessible gradual difficulty curve
- * - Cinematic Start transition & Main Menu ambient lightning
- * - VHS Pause Mode (Grayscale, blur, scanline tracking glitch)
- * - 1-Second Slow-Motion Death sequence -> Red Flash -> Detailed Game Over Stats Board
- * - 1-Second Horizon Bat Warning ('!' indicator in target lane)
- * - 2x Combo System, +20 Candy Floating Text at Rocky, +50 Near-Miss Bonus, 500/1000 Weather Phases
- */
-
 (() => {
   'use strict';
 
