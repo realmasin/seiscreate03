@@ -1,6 +1,6 @@
 /* ==========================================================================
-   SEISCREATE #03: ROCKYHALLOWEN - 16-Bit Pseudo-3D Arcade Runner Stylesheet
-   Pixelated rendering, CRT scanlines, VHS Pause FX, Pure CSS Pixel Icons
+   ROCKY'S OUTRUN - 16-Bit Pseudo-3D Vertical Arcade Runner Stylesheet
+   Strict Z-Index Depth Hierarchy, Pixelated Rendering, Pure CSS Pixel Icons
    ========================================================================== */
 
 *,
@@ -92,44 +92,7 @@ body {
   100% { transform: translate3d(2px, -1px, 0); }
 }
 
-/* VHS Pause Tracking Scanlines & Glitch Bar */
-#vhs-pause-fx {
-  position: absolute;
-  inset: 0;
-  z-index: 27;
-  pointer-events: none;
-  opacity: 0;
-  background: repeating-linear-gradient(
-    to bottom,
-    rgba(255, 255, 255, 0) 0px,
-    rgba(255, 255, 255, 0) 5px,
-    rgba(255, 255, 255, 0.08) 6px,
-    rgba(0, 0, 0, 0.35) 8px
-  );
-}
-
-#vhs-pause-fx::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 18px;
-  background-color: rgba(255, 255, 255, 0.14);
-  border-top: 2px solid rgba(56, 189, 248, 0.35);
-  border-bottom: 2px solid rgba(239, 68, 68, 0.35);
-  animation: vhsTrackingBar 2.2s linear infinite;
-}
-
-#game-viewport.is-paused #vhs-pause-fx {
-  opacity: 1;
-}
-
-@keyframes vhsTrackingBar {
-  0% { top: -10%; }
-  100% { top: 110%; }
-}
-
-/* Severe Camera Shake on Enemy Hit */
+/* Strong Camera Shake on Enemy Hit */
 #game-viewport.camera-shake {
   animation: cameraShakeAnim 0.42s steps(5, end);
 }
@@ -144,7 +107,10 @@ body {
   100% { transform: translate3d(0, 0, 0); }
 }
 
-/* Static Road Background */
+/* ==========================================================================
+   Z:1 = Static Background Road (assets/bg-road.png)
+   ========================================================================== */
+
 #bg-road {
   position: absolute;
   inset: 0;
@@ -157,48 +123,48 @@ body {
   transition: filter 1.6s ease;
 }
 
-/* Score >= 1000 Blood Moon Phase Shift */
 #bg-road.blood-moon {
   filter: hue-rotate(-62deg) saturate(2.15) contrast(1.18) brightness(0.9);
 }
 
-#blood-moon-tint {
+/* ==========================================================================
+   Z:2 = Decorative Side Environment (assets/env-tree.png, assets/env-grave.png)
+   ========================================================================== */
+
+#env-layer {
   position: absolute;
   inset: 0;
   z-index: 2;
-  background-color: #991b1b;
-  opacity: 0;
   pointer-events: none;
-  transition: opacity 1.6s ease;
+  overflow: hidden;
 }
 
-#blood-moon-tint.active {
-  opacity: 0.25;
-}
-
-/* 90s CRT Scanline & Faint Flicker Overlay */
-#crt-overlay {
+.env-prop {
   position: absolute;
-  inset: 0;
-  z-index: 30;
+  top: 0;
+  left: 0;
+  width: 108px;
+  height: 108px;
+  transform-origin: 50% 100%;
+  will-change: transform, opacity;
   pointer-events: none;
-  background: repeating-linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 0) 0px,
-    rgba(0, 0, 0, 0) 2px,
-    rgba(0, 0, 0, 0.23) 3px,
-    rgba(0, 0, 0, 0.23) 4px
-  );
-  animation: crtFlicker 0.18s infinite alternate;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  opacity: 0;
 }
 
-@keyframes crtFlicker {
-  0% { opacity: 0.88; }
-  50% { opacity: 0.96; }
-  100% { opacity: 0.91; }
+.env-prop img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 
-/* Dynamic Ground Speed Lines Layer */
+/* ==========================================================================
+   Z:3 = Ground Speed Lines (Orange/Yellow Lane Dividers Rushing Down)
+   ========================================================================== */
+
 #speed-lines-layer {
   position: absolute;
   inset: 0;
@@ -220,52 +186,14 @@ body {
   pointer-events: none;
 }
 
-/* Horizon Bat Warning Layer (1s before Bat spawns) */
-#warnings-layer {
-  position: absolute;
-  inset: 0;
-  z-index: 18;
-  pointer-events: none;
-  overflow: hidden;
-}
+/* ==========================================================================
+   Z:5 = Interactive Entities (Enemies and Collectibles)
+   ========================================================================== */
 
-.bat-warning-indicator {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 28px;
-  height: 28px;
-  background-color: #18061e;
-  border: 3px solid #ef4444;
-  box-shadow: 0 0 0 2px #000000, 0 4px 0 #000000;
-  color: #ef4444;
-  font-size: 15px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transform: translate(-50%, -100%);
-  text-shadow: 2px 2px 0 #000000;
-  animation: warningBlink 0.14s steps(2, end) infinite;
-}
-
-@keyframes warningBlink {
-  0%, 100% {
-    opacity: 1;
-    background-color: #ef4444;
-    color: #fff7ed;
-  }
-  50% {
-    opacity: 0.25;
-    background-color: #18061e;
-    color: #ef4444;
-  }
-}
-
-/* Dynamic Entities Layer (Enemies, Candies, Floating Text, Landing Dust) */
 #entities-layer {
   position: absolute;
   inset: 0;
-  z-index: 6;
+  z-index: 5;
   pointer-events: none;
   overflow: hidden;
 }
@@ -315,12 +243,12 @@ body {
   }
 }
 
-/* Floating Text (+10, +20, or NEAR MISS!) */
+/* Floating Text (+10 / +20 on Candy Collect, or NEAR MISS!) */
 .floating-text {
   position: absolute;
   top: 0;
   left: 0;
-  z-index: 24;
+  z-index: 25;
   font-size: 12px;
   color: #fde047;
   text-shadow: 2px 2px 0 #000000, -1px -1px 0 #000000;
@@ -357,7 +285,91 @@ body {
   }
 }
 
-/* Player Character (Rocky) */
+/* ==========================================================================
+   Z:8 = Warnings (Bat Spawn Indicator at Vanishing Point)
+   ========================================================================== */
+
+#warnings-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.bat-warning-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 28px;
+  height: 28px;
+  background-color: #18061e;
+  border: 3px solid #ef4444;
+  box-shadow: 0 0 0 2px #000000, 0 4px 0 #000000;
+  color: #ef4444;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translate(-50%, -100%);
+  text-shadow: 2px 2px 0 #000000;
+  animation: warningBlink 0.14s steps(2, end) infinite;
+}
+
+@keyframes warningBlink {
+  0%, 100% {
+    opacity: 1;
+    background-color: #ef4444;
+    color: #fff7ed;
+  }
+  50% {
+    opacity: 0.25;
+    background-color: #18061e;
+    color: #ef4444;
+  }
+}
+
+/* ==========================================================================
+   Z:15 = Player (Rocky) + Shadows + Landing Dust
+   ========================================================================== */
+
+#landing-dust-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Landing Dust Particle Effect (0.2s gray oval burst at Rocky's feet) */
+.landing-dust {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 44px;
+  height: 14px;
+  background-color: #cbd5e1;
+  border: 2px solid #94a3b8;
+  border-radius: 50%;
+  z-index: 15;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation: landingDustAnim 0.2s ease-out forwards;
+}
+
+@keyframes landingDustAnim {
+  0% {
+    opacity: 0.9;
+    transform: translate3d(var(--dust-x, 0px), var(--dust-y, 0px), 0)
+      translate(-50%, -50%) scale(0.45, 0.45);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--dust-x, 0px), var(--dust-y, 0px), 0)
+      translate(-50%, -50%) scale(1.75, 1.25);
+  }
+}
+
 #player-container {
   position: absolute;
   top: 0;
@@ -409,40 +421,28 @@ body {
   50% { opacity: 0.16; }
 }
 
-/* Landing Dust Particle Effect (0.2s oval burst at Rocky's feet) */
-.landing-dust {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 44px;
-  height: 14px;
-  background-color: #e2e8f0;
-  border: 2px solid #94a3b8;
-  border-radius: 50%;
-  z-index: 14;
-  pointer-events: none;
-  will-change: transform, opacity;
-  animation: landingDustAnim 0.2s ease-out forwards;
-}
+/* ==========================================================================
+   Z:25+ = Screen Flashes, VHS Effects, CRT Overlay, HUD, and UI Menus
+   ========================================================================== */
 
-@keyframes landingDustAnim {
-  0% {
-    opacity: 0.9;
-    transform: translate3d(var(--dust-x, 0px), var(--dust-y, 0px), 0)
-      translate(-50%, -50%) scale(0.45, 0.45);
-  }
-  100% {
-    opacity: 0;
-    transform: translate3d(var(--dust-x, 0px), var(--dust-y, 0px), 0)
-      translate(-50%, -50%) scale(1.75, 1.25);
-  }
-}
-
-/* Lightning Flash Overlay (Main Menu ambient & Score 500-1000 Storm Phase) */
-#lightning-flash {
+#blood-moon-tint {
   position: absolute;
   inset: 0;
   z-index: 25;
+  background-color: #991b1b;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1.6s ease;
+}
+
+#blood-moon-tint.active {
+  opacity: 0.25;
+}
+
+#lightning-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 26;
   background-color: #ffffff;
   opacity: 0;
   pointer-events: none;
@@ -474,7 +474,7 @@ body {
 #damage-flash {
   position: absolute;
   inset: 0;
-  z-index: 26;
+  z-index: 27;
   background-color: #dc2626;
   opacity: 0;
   pointer-events: none;
@@ -489,16 +489,50 @@ body {
   100% { opacity: 0; }
 }
 
-/* ==========================================================================
-   Transparent Floating HUD & Pure CSS Pixel-Art Icons (Zero Emojis)
-   ========================================================================== */
+/* VHS Pause Tracking Scanlines & Glitch Bar */
+#vhs-pause-fx {
+  position: absolute;
+  inset: 0;
+  z-index: 28;
+  pointer-events: none;
+  opacity: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0) 0px,
+    rgba(255, 255, 255, 0) 5px,
+    rgba(255, 255, 255, 0.08) 6px,
+    rgba(0, 0, 0, 0.35) 8px
+  );
+}
 
+#vhs-pause-fx::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 18px;
+  background-color: rgba(255, 255, 255, 0.14);
+  border-top: 2px solid rgba(56, 189, 248, 0.35);
+  border-bottom: 2px solid rgba(239, 68, 68, 0.35);
+  animation: vhsTrackingBar 2.2s linear infinite;
+}
+
+#game-viewport.is-paused #vhs-pause-fx {
+  opacity: 1;
+}
+
+@keyframes vhsTrackingBar {
+  0% { top: -10%; }
+  100% { top: 110%; }
+}
+
+/* Transparent Floating HUD & Pure CSS Pixel-Art Icons (Zero Emojis) */
 #hud {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  z-index: 28;
+  z-index: 29;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -604,7 +638,7 @@ body {
   opacity: 0.45;
 }
 
-/* Shaking 2X COMBO UI Banner with Pure CSS Pixel Flame */
+/* Shaking 2X COMBO UI Banner with Pure CSS Box-Shadow Flame (No Emoji) */
 #combo-banner {
   display: inline-flex;
   align-items: center;
@@ -711,12 +745,28 @@ body {
   background-color: #3b175e;
 }
 
+/* Pure CSS Pixel-Art Pause Bars (Box-Shadow Grid) */
 .pixel-pause-bars {
+  position: relative;
   display: inline-block;
-  width: 14px;
-  height: 16px;
-  border-left: 4px solid #fef08a;
-  border-right: 4px solid #fef08a;
+  width: 15px;
+  height: 15px;
+}
+
+.pixel-pause-bars::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 3px;
+  background: transparent;
+  box-shadow:
+    0px 0px 0 #fef08a, 3px 0px 0 #fef08a, 9px 0px 0 #fef08a, 12px 0px 0 #fef08a,
+    0px 3px 0 #fef08a, 3px 3px 0 #fef08a, 9px 3px 0 #fef08a, 12px 3px 0 #fef08a,
+    0px 6px 0 #fef08a, 3px 6px 0 #fef08a, 9px 6px 0 #fef08a, 12px 6px 0 #fef08a,
+    0px 9px 0 #fef08a, 3px 9px 0 #fef08a, 9px 9px 0 #fef08a, 12px 9px 0 #fef08a,
+    0px 12px 0 #fef08a, 3px 12px 0 #fef08a, 9px 12px 0 #fef08a, 12px 12px 0 #fef08a;
   filter: drop-shadow(2px 2px 0 #000000);
 }
 
@@ -746,14 +796,64 @@ body {
   background-color: #4e1f7a;
 }
 
+/* Blinking INSERT COIN TO START Play Button (Strictly appearance: none !important, no gray bg/border) */
+.insert-coin-prompt {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  width: 100%;
+  padding: 14px 8px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #fde047;
+  text-shadow: 2px 2px 0 #9a3412, -2px -2px 0 #000000;
+  cursor: pointer;
+  animation: coinBlink 0.85s steps(2, end) infinite;
+}
+
+.insert-coin-prompt:hover {
+  color: #fef08a;
+}
+
+@keyframes coinBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.15; }
+}
+
+/* 90s CRT Scanline & Faint Flicker Overlay */
+#crt-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0px,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 0, 0, 0.23) 3px,
+    rgba(0, 0, 0, 0.23) 4px
+  );
+  animation: crtFlicker 0.18s infinite alternate;
+}
+
+@keyframes crtFlicker {
+  0% { opacity: 0.88; }
+  50% { opacity: 0.96; }
+  100% { opacity: 0.91; }
+}
+
 /* Menu Overlays & Cinematic Fade Transition */
 .overlay-screen {
   position: absolute;
   inset: 0;
   z-index: 35;
-  background-color: rgba(8, 3, 13, 0.65);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background-color: rgba(8, 3, 13, 0.58);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -762,9 +862,11 @@ body {
   transition: opacity 0.65s ease;
 }
 
-/* Main Menu Overlay */
+/* Position Main Menu modal higher so Rocky & forest props are visible in Attract Mode */
 #main-menu-overlay {
-  background-color: rgba(8, 3, 13, 0.38);
+  align-items: flex-start;
+  padding-top: 46px;
+  background-color: rgba(8, 3, 13, 0.35);
 }
 
 /* Main Menu Corner Watermark */
@@ -948,37 +1050,4 @@ body {
 
 .highlight-num {
   color: #fde047;
-}
-
-/* Force override default browser button styles */
-#btn-play,
-.insert-coin-prompt {
-  appearance: none !important;
-  -webkit-appearance: none !important;
-  background: transparent !important;
-  background-color: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  color: #fde047 !important;
-  font-family: 'Press Start 2P', monospace !important;
-  font-size: 12px !important;
-  padding: 16px 12px !important;
-  text-shadow: 2px 2px 0 #9a3412, -1px -1px 0 #000000 !important;
-  text-transform: uppercase !important;
-  letter-spacing: 1px !important;
-  cursor: pointer !important;
-  animation: coinBlink 0.85s steps(2, end) infinite !important;
-  width: 100% !important;
-  outline: none !important;
-}
-
-#btn-play:hover,
-.insert-coin-prompt:hover {
-  color: #ffffff !important;
-}
-
-/* Arcade blinking effect */
-@keyframes coinBlink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.25; }
-}
+   }
