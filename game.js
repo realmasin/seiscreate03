@@ -1,3 +1,16 @@
+/**
+ * SEISCREATE #03: ROCKYHALLOWEN - AAA Indie Pseudo-3D Vertical Arcade Runner
+ * Features:
+ * - OutRun Vanishing Point Projection (Horizon at 45% height)
+ * - Auto-Scoring based on survival distance + Accessible gradual difficulty curve
+ * - Main Menu Attract Mode (slowly moving road speed lines + Rocky running) + Marquee & Watermark
+ * - VHS Pause Mode (Grayscale, blur, scanline tracking glitch)
+ * - 1-Second Slow-Motion Death sequence -> Red Flash -> Detailed Game Over Stats Board
+ * - 1-Second Horizon Bat Warning ('!' indicator in target lane)
+ * - Jump Landing Dust oval particle effect (0.2s)
+ * - 2x Combo System, +10/+20 Candy Floating Text at Rocky, +50 Near-Miss Bonus, 500/1000 Weather Phases
+ */
+
 (() => {
   'use strict';
 
@@ -222,13 +235,16 @@
 
   /**
    * Accessible Difficulty Curve:
-   * Starts at a moderate, manageable speed and scales SLOWLY with score.
+   * In MENU Attract Mode, background speed lines cruise slowly.
+   * On Cinematic Start, speed lines smoothly accelerate from Attract Mode speed to full speed.
    */
   function getDifficultyParams() {
+    const attractParticleSpeedZ = CONFIG.BASE_SPEED_Z * 0.45;
+
     if (state.mode === 'MENU') {
       return {
         speedZ: 0,
-        particleSpeedZ: 0,
+        particleSpeedZ: attractParticleSpeedZ,
         spawnIntervalMs: CONFIG.BASE_SPAWN_INTERVAL_MS,
       };
     }
@@ -242,8 +258,9 @@
     );
 
     const accelEase = state.cinematicProgress * state.cinematicProgress * (3 - 2 * state.cinematicProgress);
-    const speedZ = CONFIG.BASE_SPEED_Z * speedMultiplier * Math.max(0.05, accelEase);
-    const particleSpeedZ = CONFIG.BASE_SPEED_Z * speedMultiplier * 1.5 * accelEase;
+    const speedZ = CONFIG.BASE_SPEED_Z * speedMultiplier * Math.max(0.15, accelEase);
+    const fullParticleSpeedZ = CONFIG.BASE_SPEED_Z * speedMultiplier * 1.5;
+    const particleSpeedZ = attractParticleSpeedZ + (fullParticleSpeedZ - attractParticleSpeedZ) * accelEase;
 
     const spawnIntervalMs = Math.max(
       CONFIG.MIN_SPAWN_INTERVAL_MS,
@@ -335,7 +352,7 @@
   }
 
   /**
-   * Spawns floating text (+20 at Rocky's position on candy collect, or NEAR MISS!).
+   * Spawns floating text (+10, +20, or NEAR MISS!) at Rocky's current position.
    */
   function spawnFloatingTextAtRocky(text, variantClass = '') {
     const el = document.createElement('div');
@@ -519,7 +536,7 @@
   }
 
   /**
-   * Collects candy: updates stats & combo, spawns floating "+20" text at Rocky, plays collect sfx, NO vibration.
+   * Collects candy: updates stats & combo, spawns floating "+10" or "+20" text at Rocky, plays collect sfx, NO vibration.
    */
   function collectCandy(entity, screenX, screenY, scale) {
     entity.resolved = true;
@@ -543,8 +560,8 @@
     entity.el.style.setProperty('--collect-scale', String(scale));
     entity.el.classList.add('candy-collected');
 
-    // Spawn floating yellow "+20" text at Rocky's position
-    spawnFloatingTextAtRocky('+20', isCombo ? 'combo-pts' : '');
+    // Spawn floating yellow "+10" (or "+20" in 2x Combo) text at Rocky's position
+    spawnFloatingTextAtRocky(`+${pointsAwarded}`, isCombo ? 'combo-pts' : '');
 
     window.setTimeout(() => {
       if (entity.el.parentNode) entity.el.parentNode.removeChild(entity.el);
@@ -613,13 +630,30 @@
   }
 
   /**
-   * Updates Rocky's position, jump arc, and 2-frame scaleX(-1) running animation.
+   * Spawns a small white/gray oval dust puff at Rocky's feet when landing from a jump (0.2s).
+   */
+  function spawnLandingDust(x, y) {
+    const dustEl = document.createElement('div');
+    dustEl.className = 'landing-dust';
+    dustEl.style.setProperty('--dust-x', `${x}px`);
+    dustEl.style.setProperty('--dust-y', `${y}px`);
+    entitiesLayerEl.appendChild(dustEl);
+
+    window.setTimeout(() => {
+      if (dustEl.parentNode) dustEl.parentNode.removeChild(dustEl);
+    }, 200);
+  }
+
+  /**
+   * Updates Rocky's position, jump arc, landing dust, and 2-frame scaleX(-1) running animation.
    */
   function updatePlayer(dtMs) {
     const p = state.player;
 
     const lerpFactor = 1 - Math.pow(0.00015, dtMs / 1000);
     p.visualLane += (p.lane - p.visualLane) * lerpFactor;
+
+    const playerX = metrics.vanishingX + (p.visualLane * metrics.laneSpread);
 
     if (p.isJumping) {
       p.jumpElapsedMs += dtMs;
@@ -631,6 +665,8 @@
         p.jumpElapsedMs = 0;
         p.jumpProgress = 0;
         p.jumpArc = 0;
+        // Spawn landing dust effect at Rocky's feet upon touching down
+        spawnLandingDust(playerX, metrics.playerY);
       }
     }
 
@@ -645,6 +681,7 @@
       }
     }
 
+    // Rocky performs his 2-frame scaleX(-1) running animation in both MENU Attract Mode and PLAYING mode
     if (p.hitSpriteRemainingMs > 0 || state.mode === 'DYING') {
       setPlayerSprite(ASSETS.rockyHit);
       playerSpriteEl.classList.remove('flip-x');
@@ -653,10 +690,11 @@
       playerSpriteEl.classList.remove('flip-x');
     } else {
       setPlayerSprite(ASSETS.rockyRun);
-      if (state.mode === 'PLAYING') {
+      if (state.mode === 'PLAYING' || state.mode === 'MENU') {
+        const flipCadence = state.mode === 'MENU' ? CONFIG.RUN_FLIP_INTERVAL_MS * 1.35 : CONFIG.RUN_FLIP_INTERVAL_MS;
         state.runFlipTimerMs += dtMs;
-        if (state.runFlipTimerMs >= CONFIG.RUN_FLIP_INTERVAL_MS) {
-          state.runFlipTimerMs %= CONFIG.RUN_FLIP_INTERVAL_MS;
+        if (state.runFlipTimerMs >= flipCadence) {
+          state.runFlipTimerMs %= flipCadence;
           state.runFlipped = !state.runFlipped;
           playerSpriteEl.classList.toggle('flip-x', state.runFlipped);
         }
@@ -665,7 +703,6 @@
       }
     }
 
-    const playerX = metrics.vanishingX + (p.visualLane * metrics.laneSpread);
     const jumpOffsetY = p.jumpArc * (metrics.height * CONFIG.JUMP_HEIGHT_RATIO);
     const playerY = metrics.playerY - jumpOffsetY;
     const playerScale = 1 + (p.jumpArc * CONFIG.JUMP_SCALE_BOOST);
@@ -820,12 +857,21 @@
 
     updateWeatherAndMenuLightning(rawDtMs);
 
+    const { speedZ, particleSpeedZ, spawnIntervalMs } = getDifficultyParams();
+
+    // Update and spawn background speed lines in MENU Attract Mode, PLAYING, and DYING states
+    state.speedLineTimerMs += dtMs;
+    const speedLineInterval = Math.max(40, 95 / Math.max(0.25, particleSpeedZ / CONFIG.BASE_SPEED_Z));
+    while (state.speedLineTimerMs >= speedLineInterval) {
+      state.speedLineTimerMs -= speedLineInterval;
+      spawnSpeedLine(0.01);
+    }
+    updateSpeedLines(dtSec, particleSpeedZ);
+
     if (state.mode === 'PLAYING' || state.mode === 'DYING') {
       if (state.mode === 'PLAYING' && state.cinematicProgress < 1) {
         state.cinematicProgress = Math.min(1, state.cinematicProgress + rawDtMs / CONFIG.CINEMATIC_ACCEL_MS);
       }
-
-      const { speedZ, particleSpeedZ, spawnIntervalMs } = getDifficultyParams();
 
       // Auto-Scoring based on time/distance survived
       if (state.mode === 'PLAYING') {
@@ -835,16 +881,7 @@
           state.autoScoreTimerMs %= CONFIG.AUTO_SCORE_INTERVAL_MS;
           state.targetScore += ticks;
         }
-      }
 
-      state.speedLineTimerMs += dtMs;
-      const speedLineInterval = Math.max(40, 95 / Math.max(0.25, particleSpeedZ / CONFIG.BASE_SPEED_Z));
-      while (state.speedLineTimerMs >= speedLineInterval) {
-        state.speedLineTimerMs -= speedLineInterval;
-        spawnSpeedLine(0.01);
-      }
-
-      if (state.mode === 'PLAYING') {
         state.spawnTimerMs += dtMs;
         if (state.spawnTimerMs >= spawnIntervalMs) {
           state.spawnTimerMs %= spawnIntervalMs;
@@ -853,7 +890,6 @@
         updateBatWarnings(dtMs);
       }
 
-      updateSpeedLines(dtSec, particleSpeedZ);
       updateEntities(dtSec, speedZ);
       updateRollingScore(rawDtMs);
 
@@ -874,15 +910,17 @@
   /**
    * Resets world entities, warnings, and player state cleanly.
    */
-  function resetWorldState() {
+  function resetWorldState(preserveSpeedLines = false) {
     updateViewportMetrics();
     entitiesLayerEl.innerHTML = '';
     warningsLayerEl.innerHTML = '';
-    speedLinesLayerEl.innerHTML = '';
+    if (!preserveSpeedLines) {
+      speedLinesLayerEl.innerHTML = '';
+      state.speedLines = [];
+    }
 
     state.entities = [];
     state.pendingBatWarnings = [];
-    state.speedLines = [];
     state.targetScore = 0;
     state.displayScore = 0;
     state.lives = CONFIG.MAX_LIVES;
@@ -926,14 +964,16 @@
     syncHudStatus();
     updatePlayer(0);
 
-    // Seed stationary speed lines ready to accelerate on Cinematic Start
-    for (let i = 0; i < 8; i++) {
-      spawnSpeedLine((i + 1) * 0.11);
+    // Seed initial road speed lines if none exist yet
+    if (state.speedLines.length === 0) {
+      for (let i = 0; i < 8; i++) {
+        spawnSpeedLine((i + 1) * 0.11);
+      }
     }
   }
 
   function enterMainMenu() {
-    resetWorldState();
+    resetWorldState(true);
     state.mode = 'MENU';
     hudEl.classList.add('hud-hidden');
     pauseOverlayEl.classList.add('hidden');
@@ -946,12 +986,12 @@
   }
 
   /**
-   * Cinematic Start: UI fades out smoothly, Rocky immediately starts running,
-   * and ground speed lines smoothly accelerate from 0.
+   * Cinematic Start: UI fades out smoothly, Rocky continues running,
+   * and ground speed lines smoothly accelerate from Attract Mode speed to full speed.
    */
   function triggerCinematicStart() {
     if (state.mode === 'PLAYING') return;
-    resetWorldState();
+    resetWorldState(true);
     state.mode = 'PLAYING';
     state.cinematicProgress = 0;
 
