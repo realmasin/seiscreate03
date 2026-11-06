@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
-  <!-- Preload game assets -->
+  <!-- Preload image assets -->
   <link rel="preload" as="image" href="assets/bg-road.png" />
   <link rel="preload" as="image" href="assets/rocky-run.png" />
   <link rel="preload" as="image" href="assets/rocky-jump.png" />
@@ -16,21 +16,25 @@
   <link rel="preload" as="image" href="assets/enemy-ghost.png" />
   <link rel="preload" as="image" href="assets/enemy-bat.png" />
   <link rel="preload" as="image" href="assets/candy.png" />
+  <!-- Preload audio assets -->
+  <link rel="preload" as="audio" href="assets/sfx-click.mp3" />
+  <link rel="preload" as="audio" href="assets/sfx-collect.mp3" />
+  <link rel="preload" as="audio" href="assets/sfx-hit.mp3" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <main id="arcade-shell">
     <div id="game-viewport">
-      <!-- Static 9:16 background with horizon at ~45% height -->
-      <img id="bg-road" src="assets/bg-road.png" alt="Halloween Highway" draggable="false" />
+      <!-- Static 9:16 background road with horizon at 45% height -->
+      <img id="bg-road" src="assets/bg-road.png" alt="Halloween Road" draggable="false" />
 
-      <!-- CRT scanline & vignette atmosphere overlay -->
-      <div id="crt-overlay" aria-hidden="true"></div>
+      <!-- Danger Zone crimson environment shift overlay (activates at Score >= 500) -->
+      <div id="danger-zone-tint" aria-hidden="true"></div>
 
-      <!-- Dynamic speed lines spawning from vanishing point -->
+      <!-- Dynamic ground speed lines originating at the vanishing point -->
       <div id="speed-lines-layer" aria-hidden="true"></div>
 
-      <!-- Pseudo-3D entities layer (enemies, candies, score popups) -->
+      <!-- Dynamic pseudo-3D entities layer (enemies, candies, score popups) -->
       <div id="entities-layer" aria-hidden="true"></div>
 
       <!-- Player character (Rocky) -->
@@ -39,32 +43,83 @@
         <img id="player-sprite" src="assets/rocky-run.png" alt="Rocky" draggable="false" />
       </div>
 
-      <!-- Red screen flash overlay on damage -->
+      <!-- Red screen flash overlay on taking damage -->
       <div id="damage-flash" aria-hidden="true"></div>
 
-      <!-- Top Arcade HUD -->
-      <header id="hud">
-        <div id="lives-panel" aria-label="Lives remaining">
+      <!-- Top HUD (Score, 3 Hearts, Pause Button) -->
+      <header id="hud" class="hidden">
+        <div id="lives-panel" aria-label="Lives">
           <span class="heart" data-index="0">&#9829;</span>
           <span class="heart" data-index="1">&#9829;</span>
           <span class="heart" data-index="2">&#9829;</span>
         </div>
+
         <div id="score-panel">
           <span class="hud-label">SCORE</span>
           <span id="score-value">00000</span>
         </div>
+
+        <button id="pause-btn" class="ui-btn icon-btn" type="button" aria-label="Pause Game">
+          &#9208;
+        </button>
       </header>
 
-      <!-- Controls hint banner at start -->
-      <div id="controls-toast">SWIPE L/R OR ARROWS TO DODGE &bull; SWIPE UP TO JUMP</div>
+      <!-- Main Menu Overlay (Background idles and Rocky runs in place) -->
+      <section id="main-menu-overlay" class="overlay-screen">
+        <div class="modal-box">
+          <p class="arcade-kicker">16-BIT ARCADE EDITION</p>
+          <h1 class="game-title">ROCKY'S HALLOWEEN RUN</h1>
 
-      <!-- Game Over UI Overlay -->
-      <section id="game-over-overlay" class="hidden" aria-live="polite">
-        <div class="modal-card">
-          <h1 class="modal-title">GAME OVER</h1>
-          <p class="modal-subtitle">FINAL SCORE</p>
-          <p id="final-score-value">0</p>
-          <button id="restart-btn" type="button">RESTART</button>
+          <div id="menu-buttons-group" class="btn-stack">
+            <button id="play-btn" class="ui-btn primary-btn" type="button">PLAY</button>
+            <button id="how-to-play-btn" class="ui-btn secondary-btn" type="button">HOW TO PLAY</button>
+          </div>
+
+          <!-- Instructions Sub-Panel inside Main Menu -->
+          <div id="instructions-panel" class="instructions-box hidden">
+            <h2 class="panel-heading">HOW TO PLAY</h2>
+            <ul class="instructions-list">
+              <li><strong>MOBILE:</strong> SWIPE LEFT / RIGHT TO MOVE LANES. SWIPE UP TO JUMP.</li>
+              <li><strong>PC:</strong> ARROWS OR WASD TO MOVE. SPACE / UP TO JUMP.</li>
+              <li><strong>RULES:</strong> JUMP OVER PUMPKINS. DODGE FLYING GHOSTS &amp; BATS. COLLECT CANDY (+10 PTS).</li>
+            </ul>
+            <button id="close-instructions-btn" class="ui-btn primary-btn" type="button">BACK</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Pause Menu Overlay -->
+      <section id="pause-overlay" class="overlay-screen hidden">
+        <div class="modal-box">
+          <h2 class="modal-title">PAUSED</h2>
+          <div class="btn-stack">
+            <button id="resume-btn" class="ui-btn primary-btn" type="button">RESUME</button>
+            <button id="pause-restart-btn" class="ui-btn secondary-btn" type="button">RESTART</button>
+            <button id="pause-home-btn" class="ui-btn secondary-btn" type="button">HOME</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Game Over Overlay -->
+      <section id="game-over-overlay" class="overlay-screen hidden" aria-live="polite">
+        <div class="modal-box">
+          <h2 class="modal-title danger-text">GAME OVER</h2>
+
+          <div class="score-summary">
+            <div class="score-row">
+              <span class="score-label">FINAL SCORE</span>
+              <span id="final-score-value" class="score-num">0</span>
+            </div>
+            <div class="score-row">
+              <span class="score-label">HIGH SCORE</span>
+              <span id="high-score-value" class="score-num highlight-num">0</span>
+            </div>
+          </div>
+
+          <div class="btn-stack">
+            <button id="gameover-restart-btn" class="ui-btn primary-btn" type="button">RESTART</button>
+            <button id="gameover-home-btn" class="ui-btn secondary-btn" type="button">HOME</button>
+          </div>
         </div>
       </section>
     </div>
@@ -72,4 +127,4 @@
 
   <script src="game.js"></script>
 </body>
-        </html>
+  </html>
