@@ -991,3 +991,64 @@ body {
 .highlight-num {
   color: #fde047;
 }
+
+/* Force override default browser button styles */
+#btn-play,
+.insert-coin-prompt {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #fde047 !important;
+  font-family: 'Press Start 2P', monospace !important;
+  font-size: 12px !important;
+  padding: 16px 12px !important;
+  text-shadow: 2px 2px 0 #9a3412, -1px -1px 0 #000000 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 1px !important;
+  cursor: pointer !important;
+  animation: coinBlink 0.85s steps(2, end) infinite !important;
+  width: 100% !important;
+  outline: none !important;
+}
+
+#btn-play:hover,
+.insert-coin-prompt:hover {
+  color: #ffffff !important;
+}
+
+/* Arcade blinking effect */
+@keyframes coinBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+/* Menu Overlays & Cinematic Fade Transition */
+.overlay-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 35;
+  
+  /* Darken and blur the game background */
+  background-color: rgba(8, 3, 13, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px); /* Safari support */
+  
+  /* Center the modal box perfectly */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 1;
+  transition: opacity 0.65s ease;
+}
+
+/* Main Menu Overlay */
+#main-menu-overlay {
+  /* Inherits the perfect centering from .overlay-screen */
+  /* Keeping a slightly lighter background specifically for the main menu */
+  background-color: rgba(8, 3, 13, 0.38);
+}
+
