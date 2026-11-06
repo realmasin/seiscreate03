@@ -1,6 +1,7 @@
 const gameContainer = document.getElementById('game-container');
 const rocky = document.getElementById('rocky');
 const scoreElement = document.getElementById('score');
+const hitFlash = document.getElementById('hit-flash');
 
 let score = 0;
 let gameLoop;
@@ -8,26 +9,28 @@ let isGameOver = false;
 let activeObjects = [];
 let spawnTimer = 0;
 
-// Difficulty scaling variables
 let currentSpeedMultiplier = 1;
-let framesBetweenSpawns = 60; // Starts slow
+let framesBetweenSpawns = 70; 
 
-// Movement Configuration (3 Lanes)
-const containerWidth = gameContainer.offsetWidth || 400;
+// Dynamic sizing and lane calculations for full road usage
+const containerWidth = gameContainer.offsetWidth;
+const containerHeight = gameContainer.offsetHeight;
+const rockyWidth = 120;
+
+// Lanes: Left edge, Center, Right edge
 const lanePositions = [
-    (containerWidth / 2) - 120, // Left
-    (containerWidth / 2) - 60,  // Center (Rocky width is 120, so center is offset by 60)
-    (containerWidth / 2)         // Right
+    20,                                     // Left
+    (containerWidth / 2) - (rockyWidth / 2),// Center
+    containerWidth - rockyWidth - 20        // Right
 ]; 
 let currentLane = 1; 
 
-// Pseudo-3D Perspective Configuration
-const horizonY = 220; // Pushed further up to match the background castle
-const endY = gameContainer.offsetHeight + 100; // Drops off screen
-const horizonX = containerWidth / 2; // Center of horizon
-const endXSpread = 160; // Spread width at the bottom
+// Horizon exactly at the vanishing point in the background image
+const horizonY = containerHeight * 0.35; 
+const endY = containerHeight + 100; 
+const horizonX = containerWidth / 2; 
+const endXSpread = containerWidth * 0.45; // Wider spread at the bottom
 
-// Movement Logic
 function moveLeft() {
     if (!isGameOver && currentLane > 0) {
         currentLane--;
@@ -46,31 +49,24 @@ function updateRockyPosition() {
     rocky.style.left = lanePositions[currentLane] + 'px';
 }
 
-// Keyboard Listeners
 document.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowLeft') moveLeft();
     if (event.key === 'ArrowRight') moveRight();
 });
 
-// Mobile Touch Listeners
-document.getElementById('btn-left').addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    moveLeft();
-});
-document.getElementById('btn-right').addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    moveRight();
-});
-// Mouse fallback for testing mobile buttons on PC
-document.getElementById('btn-left').addEventListener('mousedown', moveLeft);
-document.getElementById('btn-right').addEventListener('mousedown', moveRight);
+const btnLeft = document.getElementById('btn-left');
+const btnRight = document.getElementById('btn-right');
 
-// Spawn Objects
+btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); moveLeft(); }, {passive: false});
+btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); moveRight(); }, {passive: false});
+btnLeft.addEventListener('mousedown', moveLeft);
+btnRight.addEventListener('mousedown', moveRight);
+
 function spawnObject() {
     const lane = Math.floor(Math.random() * 3) - 1; 
     
     const types = ['pumpkin', 'ghost'];
-    const isCandy = Math.random() > 0.7; // 30% chance for candy
+    const isCandy = Math.random() > 0.7; 
     const type = isCandy ? 'candy' : types[Math.floor(Math.random() * types.length)];
 
     const obj = document.createElement('div');
@@ -88,17 +84,31 @@ function spawnObject() {
         element: obj,
         lane: lane,
         type: type,
-        progress: 0.01, // Start slightly visible to fix the "sudden pop" issue
-        isCandy: isCandy
+        progress: 0, // Start exactly at horizon
+        isCandy: isCandy,
+        collected: false
     });
+}
+
+// AABB True Collision Detection
+function checkCollision(rect1, rect2) {
+    // Add tolerance to make hitboxes fair (don't die if just touching a pixel)
+    const toleranceX = 30;
+    const toleranceY = 20;
+
+    return (
+        rect1.left + toleranceX < rect2.right - toleranceX &&
+        rect1.right - toleranceX > rect2.left + toleranceX &&
+        rect1.top + toleranceY < rect2.bottom - toleranceY &&
+        rect1.bottom > rect2.top + toleranceY
+    );
 }
 
 function update() {
     if (isGameOver) return;
 
-    // Difficulty increases with score (faster movement, faster spawns)
-    currentSpeedMultiplier = 1 + (score * 0.01);
-    framesBetweenSpawns = Math.max(20, 60 - (score * 0.5)); // Never goes below 20 frames
+    currentSpeedMultiplier = 1 + (score * 0.015);
+    framesBetweenSpawns = Math.max(25, 70 - (score * 0.8));
 
     spawnTimer++;
     if (spawnTimer > framesBetweenSpawns) { 
@@ -106,11 +116,14 @@ function update() {
         spawnTimer = 0;
     }
 
+    const rockyRect = rocky.getBoundingClientRect();
+
     for (let i = activeObjects.length - 1; i >= 0; i--) {
         let obj = activeObjects[i];
         
-        // Dynamic speed based on progress and score multiplier
-        obj.progress += (0.004 + (obj.progress * 0.015)) * currentSpeedMultiplier; 
+        if (obj.collected) continue; // Skip logic if already collected
+
+        obj.progress += (0.003 + (obj.progress * 0.015)) * currentSpeedMultiplier; 
 
         if (obj.progress >= 1.2) {
             obj.element.remove();
@@ -118,9 +131,7 @@ function update() {
             continue;
         }
 
-        // 3D Scale (starts very tiny at the horizon)
         const scale = obj.progress; 
-        
         const currentY = horizonY + (obj.progress * (endY - horizonY));
         const currentSpread = endXSpread * obj.progress;
         const currentX = horizonX + (obj.lane * currentSpread);
@@ -128,23 +139,31 @@ function update() {
         obj.element.style.left = (currentX - ((parseInt(obj.element.style.width) * scale) / 2)) + 'px';
         obj.element.style.top = (currentY - (parseInt(obj.element.style.height) * scale)) + 'px'; 
         
-        // Combine scale and object-specific animations correctly
-        if (obj.type === 'candy') {
-            obj.element.style.transform = `scale(${scale}) rotate(${Math.sin(Date.now() / 100) * 10}deg)`;
-        } else {
+        if (obj.type !== 'ghost') {
             obj.element.style.transform = `scale(${scale})`;
+        } else {
+            // Preserve float animation for ghost
+            obj.element.style.transform = `scale(${scale}) translateY(-10px)`;
         }
 
-        // Collision Detection
-        if (obj.progress > 0.85 && obj.progress < 1.0) {
-            const objectLaneIndex = obj.lane + 1; 
+        // Real Collision Detection
+        if (obj.progress > 0.6) { // Only check when they get somewhat close
+            const objRect = obj.element.getBoundingClientRect();
             
-            if (objectLaneIndex === currentLane) {
+            if (checkCollision(rockyRect, objRect)) {
                 if (obj.isCandy) {
+                    // Visual feedback for candy
                     score += 10;
                     scoreElement.innerText = score;
-                    obj.element.remove();
-                    activeObjects.splice(i, 1);
+                    obj.collected = true;
+                    obj.element.classList.add('collected');
+                    
+                    setTimeout(() => {
+                        obj.element.remove();
+                        const index = activeObjects.indexOf(obj);
+                        if (index > -1) activeObjects.splice(index, 1);
+                    }, 200);
+
                 } else {
                     gameOver();
                 }
@@ -157,15 +176,19 @@ function update() {
 
 function gameOver() {
     isGameOver = true;
-    rocky.classList.remove('running'); // Stop the running animation
+    rocky.classList.remove('running'); 
     rocky.style.backgroundImage = "url('assets/rocky-hit.png')"; 
+    
+    // Screen flash effect
+    hitFlash.classList.add('flash-active');
+    
     cancelAnimationFrame(gameLoop);
     
     setTimeout(() => {
         alert('Game Over! Your Score: ' + score + '\nRefresh to play again.');
-    }, 100);
+    }, 300);
 }
 
-// Initial position setup and game start
+// Initialization
 updateRockyPosition();
 gameLoop = requestAnimationFrame(update);
