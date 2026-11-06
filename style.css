@@ -1,6 +1,6 @@
 /* ==========================================================================
-   Rocky's Halloween OutRun - 16-Bit Retro Arcade Stylesheet
-   Strictly pixelated rendering, solid retro colors, no CSS gradients/dithering
+   SEISCREATE #03: ROCKYHALLOWEN - 16-Bit Pseudo-3D Arcade Runner Stylesheet
+   Pixelated rendering, CRT scanline flicker, pure CSS pixel icons, zero emojis
    ========================================================================== */
 
 *,
@@ -23,21 +23,21 @@ body {
   width: 100%;
   height: 100dvh;
   overflow: hidden;
-  background-color: #09040e;
+  background-color: #08030d;
   font-family: 'Press Start 2P', monospace;
   color: #fff7ed;
   touch-action: none;
   overscroll-behavior: none;
 }
 
-/* Outer Arcade Frame */
+/* Outer Arcade Cabinet Shell */
 #arcade-shell {
   width: 100%;
   height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #09040e;
+  background-color: #08030d;
 }
 
 /* 9:16 Game Viewport */
@@ -48,9 +48,9 @@ body {
   max-width: calc(100dvh * (9 / 16));
   aspect-ratio: 9 / 16;
   overflow: hidden;
-  background-color: #140824;
-  border-left: 4px solid #2e1547;
-  border-right: 4px solid #2e1547;
+  background-color: #12071f;
+  border-left: 4px solid #2b1244;
+  border-right: 4px solid #2b1244;
   touch-action: none;
 }
 
@@ -64,24 +64,24 @@ body {
   }
 }
 
-/* Freeze all CSS animations while the game is paused */
+/* Freeze all CSS animations while paused */
 #game-viewport.is-paused *,
 #game-viewport.is-paused *::before,
 #game-viewport.is-paused *::after {
   animation-play-state: paused !important;
 }
 
-/* Camera Shake Animation on Enemy Hit */
+/* Screen Shake on Enemy Hit */
 #game-viewport.camera-shake {
   animation: cameraShakeAnim 0.36s steps(4, end);
 }
 
 @keyframes cameraShakeAnim {
   0% { transform: translate3d(0, 0, 0); }
-  20% { transform: translate3d(-10px, 6px, 0); }
-  40% { transform: translate3d(10px, -6px, 0); }
-  60% { transform: translate3d(-8px, -4px, 0); }
-  80% { transform: translate3d(8px, 4px, 0); }
+  20% { transform: translate3d(-11px, 7px, 0); }
+  40% { transform: translate3d(11px, -7px, 0); }
+  60% { transform: translate3d(-8px, -5px, 0); }
+  80% { transform: translate3d(8px, 5px, 0); }
   100% { transform: translate3d(0, 0, 0); }
 }
 
@@ -95,29 +95,51 @@ body {
   object-position: center center;
   z-index: 1;
   pointer-events: none;
-  transition: filter 1.2s ease;
+  transition: filter 1.6s ease;
 }
 
-/* Score >= 500 Environment Shift (Danger Zone) */
-#bg-road.danger-zone {
-  filter: hue-rotate(-55deg) saturate(1.75) contrast(1.1);
+/* Score >= 1000 Blood Moon Phase Shift */
+#bg-road.blood-moon {
+  filter: hue-rotate(-62deg) saturate(2.15) contrast(1.18) brightness(0.92);
 }
 
-#danger-zone-tint {
+#blood-moon-tint {
   position: absolute;
   inset: 0;
   z-index: 2;
-  background-color: #dc2626;
+  background-color: #991b1b;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 1.2s ease;
+  transition: opacity 1.6s ease;
 }
 
-#danger-zone-tint.active {
-  opacity: 0.18;
+#blood-moon-tint.active {
+  opacity: 0.24;
 }
 
-/* Dynamic Ground Speed Lines / Particles Layer */
+/* 90s CRT Scanline & Faint Flicker Overlay */
+#crt-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0px,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 0, 0, 0.24) 3px,
+    rgba(0, 0, 0, 0.24) 4px
+  );
+  animation: crtFlicker 0.18s infinite alternate;
+}
+
+@keyframes crtFlicker {
+  0% { opacity: 0.88; }
+  50% { opacity: 0.96; }
+  100% { opacity: 0.91; }
+}
+
+/* Dynamic Ground Speed Lines Layer */
 #speed-lines-layer {
   position: absolute;
   inset: 0;
@@ -139,7 +161,7 @@ body {
   pointer-events: none;
 }
 
-/* Dynamic Entities Layer (Enemies & Candies) */
+/* Dynamic Entities Layer (Enemies, Candies, Floating Text) */
 #entities-layer {
   position: absolute;
   inset: 0;
@@ -160,6 +182,7 @@ body {
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  opacity: 0;
 }
 
 .entity img {
@@ -171,7 +194,7 @@ body {
 
 /* Candy Collect Pop/Fade Animation */
 .candy-collected {
-  animation: candyPopFade 0.32s ease-out forwards !important;
+  animation: candyPopFade 0.3s ease-out forwards !important;
 }
 
 @keyframes candyPopFade {
@@ -182,38 +205,55 @@ body {
   }
   50% {
     opacity: 1;
-    transform: translate3d(var(--collect-x, 0px), calc(var(--collect-y, 0px) - 26px), 0)
-      translate(-50%, -100%) scale(calc(var(--collect-scale, 1) * 1.5));
+    transform: translate3d(var(--collect-x, 0px), calc(var(--collect-y, 0px) - 24px), 0)
+      translate(-50%, -100%) scale(calc(var(--collect-scale, 1) * 1.48));
   }
   100% {
     opacity: 0;
-    transform: translate3d(var(--collect-x, 0px), calc(var(--collect-y, 0px) - 52px), 0)
-      translate(-50%, -100%) scale(calc(var(--collect-scale, 1) * 1.85));
+    transform: translate3d(var(--collect-x, 0px), calc(var(--collect-y, 0px) - 48px), 0)
+      translate(-50%, -100%) scale(calc(var(--collect-scale, 1) * 1.8));
   }
 }
 
-/* Floating +10 Score Popup */
-.score-popup {
+/* Floating Text (+10, +20, NEAR MISS! +50) */
+.floating-text {
   position: absolute;
   top: 0;
   left: 0;
-  z-index: 22;
+  z-index: 24;
+  font-size: 12px;
   color: #fde047;
-  font-size: 14px;
-  text-shadow: 2px 2px 0 #000000;
+  text-shadow: 2px 2px 0 #000000, -1px -1px 0 #000000;
+  white-space: nowrap;
   pointer-events: none;
   will-change: transform, opacity;
-  animation: floatScoreUp 0.5s ease-out forwards;
+  animation: floatTextUp 0.62s ease-out forwards;
 }
 
-@keyframes floatScoreUp {
+.floating-text.combo-pts {
+  font-size: 14px;
+  color: #fb923c;
+  text-shadow: 2px 2px 0 #000000, 0 0 6px #ea580c;
+}
+
+.floating-text.near-miss-pts {
+  font-size: 11px;
+  color: #38bdf8;
+  text-shadow: 2px 2px 0 #000000;
+}
+
+@keyframes floatTextUp {
   0% {
     opacity: 1;
-    transform: translate3d(var(--popup-x, 0px), var(--popup-y, 0px), 0) translate(-50%, -50%) scale(0.85);
+    transform: translate3d(var(--ft-x, 0px), var(--ft-y, 0px), 0) translate(-50%, -50%) scale(0.8);
+  }
+  30% {
+    opacity: 1;
+    transform: translate3d(var(--ft-x, 0px), calc(var(--ft-y, 0px) - 20px), 0) translate(-50%, -50%) scale(1.1);
   }
   100% {
     opacity: 0;
-    transform: translate3d(var(--popup-x, 0px), calc(var(--popup-y, 0px) - 44px), 0) translate(-50%, -50%) scale(1.1);
+    transform: translate3d(var(--ft-x, 0px), calc(var(--ft-y, 0px) - 52px), 0) translate(-50%, -50%) scale(1);
   }
 }
 
@@ -253,8 +293,8 @@ body {
   left: 50%;
   width: 58%;
   height: 12px;
-  background-color: #09040e;
-  opacity: 0.7;
+  background-color: #08030d;
+  opacity: 0.72;
   transform: translateX(-50%);
   z-index: 1;
 }
@@ -266,10 +306,31 @@ body {
 
 @keyframes invincibleFlicker {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.18; }
+  50% { opacity: 0.16; }
 }
 
-/* Red Screen Flash Overlay on Hit */
+/* Dynamic Weather: White Lightning Flash Overlay (Score 500-1000) */
+#lightning-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  background-color: #ffffff;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#lightning-flash.strike-active {
+  animation: lightningStrikeAnim 0.42s steps(2, end) forwards;
+}
+
+@keyframes lightningStrikeAnim {
+  0% { opacity: 0.82; }
+  25% { opacity: 0.12; }
+  50% { opacity: 0.65; }
+  100% { opacity: 0; }
+}
+
+/* Red Damage Flash Overlay */
 #damage-flash {
   position: absolute;
   inset: 0;
@@ -288,7 +349,10 @@ body {
   100% { opacity: 0; }
 }
 
-/* Top HUD (Lives, Score, Pause Button) */
+/* ==========================================================================
+   Transparent Floating HUD & Pure CSS Pixel-Art Icons (Zero Emojis)
+   ========================================================================== */
+
 #hud {
   position: absolute;
   top: 0;
@@ -296,39 +360,181 @@ body {
   right: 0;
   z-index: 28;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 14px 14px;
-  background-color: rgba(9, 4, 14, 0.82);
-  border-bottom: 3px solid #ea580c;
+  padding: 16px 16px;
+  background: transparent;
+  border: none;
+  transition: opacity 0.35s ease;
 }
 
-#hud.hidden {
-  display: none;
+#hud.hud-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#hud-left {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 #lives-panel {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
+  height: 24px;
 }
 
-.heart {
-  font-size: 20px;
-  color: #ef4444;
-  text-shadow: 2px 2px 0 #000000;
+/* Pure CSS Pixel-Art Heart (7x6 grid scaled with 3px pixel blocks) */
+.pixel-heart {
+  position: relative;
+  width: 21px;
+  height: 18px;
 }
 
-.heart.lost {
-  color: #3f3f46;
+.pixel-heart::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 3px;
+  background: transparent;
+  box-shadow:
+    /* Row 1 */
+    3px 0 0 #ef4444,
+    6px 0 0 #ef4444,
+    12px 0 0 #ef4444,
+    15px 0 0 #ef4444,
+    /* Row 2 */
+    0px 3px 0 #ef4444,
+    3px 3px 0 #fca5a5,
+    6px 3px 0 #ef4444,
+    9px 3px 0 #ef4444,
+    12px 3px 0 #ef4444,
+    15px 3px 0 #ef4444,
+    18px 3px 0 #b91c1c,
+    /* Row 3 */
+    0px 6px 0 #ef4444,
+    3px 6px 0 #ef4444,
+    6px 6px 0 #ef4444,
+    9px 6px 0 #ef4444,
+    12px 6px 0 #ef4444,
+    15px 6px 0 #ef4444,
+    18px 6px 0 #b91c1c,
+    /* Row 4 */
+    3px 9px 0 #ef4444,
+    6px 9px 0 #ef4444,
+    9px 9px 0 #ef4444,
+    12px 9px 0 #ef4444,
+    15px 9px 0 #b91c1c,
+    /* Row 5 */
+    6px 12px 0 #ef4444,
+    9px 12px 0 #ef4444,
+    12px 12px 0 #b91c1c,
+    /* Row 6 */
+    9px 15px 0 #b91c1c;
+  filter: drop-shadow(2px 2px 0 #000000);
+}
+
+.pixel-heart.lost::before {
+  box-shadow:
+    3px 0 0 #3f3f46,
+    6px 0 0 #3f3f46,
+    12px 0 0 #3f3f46,
+    15px 0 0 #3f3f46,
+    0px 3px 0 #3f3f46,
+    3px 3px 0 #52525b,
+    6px 3px 0 #3f3f46,
+    9px 3px 0 #3f3f46,
+    12px 3px 0 #3f3f46,
+    15px 3px 0 #3f3f46,
+    18px 3px 0 #27272a,
+    0px 6px 0 #3f3f46,
+    3px 6px 0 #3f3f46,
+    6px 6px 0 #3f3f46,
+    9px 6px 0 #3f3f46,
+    12px 6px 0 #3f3f46,
+    15px 6px 0 #3f3f46,
+    18px 6px 0 #27272a,
+    3px 9px 0 #3f3f46,
+    6px 9px 0 #3f3f46,
+    9px 9px 0 #3f3f46,
+    12px 9px 0 #3f3f46,
+    15px 9px 0 #27272a,
+    6px 12px 0 #3f3f46,
+    9px 12px 0 #3f3f46,
+    12px 12px 0 #27272a,
+    9px 15px 0 #27272a;
   opacity: 0.45;
 }
 
+/* Shaking 2X COMBO UI Banner with Pure CSS Pixel Flame */
+#combo-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  background-color: rgba(24, 9, 44, 0.85);
+  border: 2px solid #f97316;
+  box-shadow: 2px 2px 0 #000000;
+  animation: comboShake 0.16s steps(2, end) infinite;
+}
+
+#combo-banner.hidden {
+  display: none;
+}
+
+.pixel-flame {
+  position: relative;
+  width: 12px;
+  height: 15px;
+  display: inline-block;
+}
+
+.pixel-flame::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 3px;
+  background: transparent;
+  box-shadow:
+    6px 0 0 #f97316,
+    3px 3px 0 #f97316,
+    6px 3px 0 #fde047,
+    0px 6px 0 #ea580c,
+    3px 6px 0 #fde047,
+    6px 6px 0 #fde047,
+    9px 6px 0 #f97316,
+    0px 9px 0 #ea580c,
+    3px 9px 0 #fde047,
+    6px 9px 0 #fef08a,
+    9px 9px 0 #ea580c,
+    3px 12px 0 #ea580c,
+    6px 12px 0 #f97316;
+}
+
+.combo-text {
+  font-size: 9px;
+  color: #fde047;
+  text-shadow: 2px 2px 0 #000000;
+}
+
+@keyframes comboShake {
+  0% { transform: translate3d(-1px, 1px, 0) rotate(-1deg); }
+  50% { transform: translate3d(1px, -1px, 0) rotate(1deg); }
+  100% { transform: translate3d(-1px, -1px, 0) rotate(0deg); }
+}
+
+/* Rolling Score Display */
 #score-panel {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
 }
 
 .hud-label {
@@ -338,13 +544,13 @@ body {
 }
 
 #score-value {
-  font-size: 16px;
+  font-size: 17px;
   color: #fef08a;
-  text-shadow: 2px 2px 0 #000000;
+  text-shadow: 3px 3px 0 #000000;
   font-variant-numeric: tabular-nums;
 }
 
-/* Retro Pixel Buttons */
+/* Pure CSS Pixel-Art Pause Button */
 .ui-btn {
   font-family: 'Press Start 2P', monospace;
   cursor: pointer;
@@ -357,20 +563,27 @@ body {
   transform: translateY(3px);
 }
 
-.icon-btn {
-  width: 42px;
-  height: 42px;
-  font-size: 14px;
-  background-color: #2e1547;
-  color: #fef08a;
-  box-shadow: 0 4px 0 #000000;
+.pixel-icon-btn {
+  width: 40px;
+  height: 40px;
+  background-color: rgba(26, 11, 46, 0.78);
+  box-shadow: 3px 3px 0 #000000;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.icon-btn:hover {
-  background-color: #431f66;
+.pixel-icon-btn:hover {
+  background-color: #3b175e;
+}
+
+.pixel-pause-bars {
+  display: inline-block;
+  width: 14px;
+  height: 16px;
+  border-left: 4px solid #fef08a;
+  border-right: 4px solid #fef08a;
+  filter: drop-shadow(2px 2px 0 #000000);
 }
 
 .primary-btn {
@@ -378,7 +591,7 @@ body {
   padding: 14px 16px;
   font-size: 12px;
   background-color: #f97316;
-  color: #09040e;
+  color: #08030d;
   box-shadow: 0 5px 0 #7c2d12;
 }
 
@@ -399,16 +612,49 @@ body {
   background-color: #4e1f7a;
 }
 
-/* Menu Overlays (Main Menu, Pause, Game Over) */
+/* Blinking INSERT COIN TO START Prompt */
+.insert-coin-prompt {
+  width: 100%;
+  padding: 16px 12px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #fde047;
+  background-color: rgba(17, 6, 31, 0.9);
+  border: 3px solid #f97316;
+  box-shadow: 0 5px 0 #000000;
+  text-shadow: 2px 2px 0 #9a3412, -1px -1px 0 #000000;
+  cursor: pointer;
+  animation: coinBlink 0.85s steps(2, end) infinite;
+}
+
+.insert-coin-prompt:hover {
+  color: #ffffff;
+  border-color: #fde047;
+}
+
+@keyframes coinBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+/* Menu Overlays & Cinematic Fade Transition */
 .overlay-screen {
   position: absolute;
   inset: 0;
   z-index: 35;
-  background-color: rgba(9, 4, 14, 0.72);
+  background-color: rgba(8, 3, 13, 0.68);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
+  opacity: 1;
+  transition: opacity 0.65s ease;
+}
+
+.overlay-screen.fade-out {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .overlay-screen.hidden {
@@ -417,8 +663,8 @@ body {
 
 .modal-box {
   width: 100%;
-  max-width: 330px;
-  background-color: #1a0b2e;
+  max-width: 336px;
+  background-color: rgba(24, 10, 44, 0.94);
   border: 4px solid #f97316;
   box-shadow: 0 0 0 4px #000000, 0 12px 0 #000000;
   padding: 24px 18px;
@@ -429,16 +675,20 @@ body {
   gap: 18px;
 }
 
-.arcade-kicker {
+.event-branding {
   font-size: 9px;
+  line-height: 1.5;
   color: #fdba74;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-shadow: 2px 2px 0 #000000;
+  border-bottom: 2px solid #9a3412;
+  padding-bottom: 8px;
+  width: 100%;
 }
 
 .game-title {
-  font-size: 20px;
-  line-height: 1.45;
+  font-size: 21px;
+  line-height: 1.4;
   color: #fef08a;
   text-shadow: 3px 3px 0 #9a3412, -2px -2px 0 #000000;
 }
@@ -464,7 +714,7 @@ body {
   display: none;
 }
 
-/* How to Play Instructions Sub-Panel */
+/* Instructions Panel */
 .instructions-box {
   width: 100%;
   display: flex;
@@ -492,7 +742,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  font-size: 9px;
+  font-size: 8px;
   line-height: 1.65;
   color: #ffedd5;
 }
@@ -501,7 +751,7 @@ body {
   color: #fb923c;
 }
 
-/* Game Over Score Summary */
+/* Game Over Score Box */
 .score-summary {
   width: 100%;
   background-color: #11061f;
