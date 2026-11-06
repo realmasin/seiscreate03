@@ -1,12 +1,13 @@
 /**
  * Rocky's Halloween OutRun - 90s Pseudo-3D Vertical Arcade Runner
- * Production-ready vanilla JS game engine using requestAnimationFrame.
+ * Vanilla JS engine with 3-lane vanishing point projection, state machine,
+ * 2-frame scaleX(-1) running trick, audio pooling, haptics, and score >= 500 danger shift.
  */
 
 (() => {
   'use strict';
 
-  // Exact asset file paths
+  // Exact image and audio asset paths
   const ASSETS = {
     bgRoad: 'assets/bg-road.png',
     rockyRun: 'assets/rocky-run.png',
@@ -16,46 +17,101 @@
     enemyGhost: 'assets/enemy-ghost.png',
     enemyBat: 'assets/enemy-bat.png',
     candy: 'assets/candy.png',
+    sfxClick: 'assets/sfx-click.mp3',
+    sfxCollect: 'assets/sfx-collect.mp3',
+    sfxHit: 'assets/sfx-hit.mp3',
   };
+
+  const STORAGE_KEY_HIGH_SCORE = 'rocky_halloween_outrun_highscore';
 
   // Core Pseudo-3D & Gameplay Constants
   const CONFIG = {
-    HORIZON_Y_RATIO: 0.45,       // Vanishing point Y at 45% of screen height
-    VANISHING_X_RATIO: 0.50,     // Vanishing point X at horizontal center
-    PLAYER_Y_RATIO: 0.88,        // Player depth plane Y at 88% of screen height
-    LANE_SPREAD_RATIO: 0.30,     // Horizontal distance between lanes at player depth
-    PERSPECTIVE_EXPONENT: 2.15,  // Non-linear depth curve for OutRun perspective
-    MIN_SPAWN_SCALE: 0.03,       // Initial scale at the vanishing point
+    HORIZON_Y_RATIO: 0.45,       // Vanishing point Y at exactly 45% of screen height
+    VANISHING_X_RATIO: 0.50,     // Vanishing point X at horizontal center (50%)
+    PLAYER_Y_RATIO: 0.88,        // Player depth plane Y near bottom of screen
+    LANE_SPREAD_RATIO: 0.30,     // Horizontal spread between lanes at player plane
+    PERSPECTIVE_EXPONENT: 2.15,  // Non-linear depth curve for OutRun road acceleration
+    MIN_SPAWN_SCALE: 0.03,       // Near-zero initial scale at vanishing point
     MAX_LIVES: 3,
     CANDY_POINTS: 10,
-    INVINCIBILITY_MS: 1500,      // 1.5 seconds of invincibility on hit
-    HIT_SPRITE_MS: 480,          // Duration to display rocky-hit.png
-    JUMP_DURATION_MS: 580,       // Total air time when jumping
-    JUMP_HEIGHT_RATIO: 0.15,     // Peak jump height relative to viewport height
-    JUMP_SCALE_BOOST: 0.28,      // Additional scale multiplier at peak jump
-    COLLISION_Z_MIN: 0.89,       // Depth window start for player collision
-    COLLISION_Z_MAX: 0.99,       // Depth window end for player collision
-    DESPAWN_Z: 1.24,             // Depth past bottom of screen where objects despawn
-    BASE_SPEED_Z: 0.56,          // Base depth units traversed per second
-    BASE_SPAWN_INTERVAL_MS: 980, // Initial time between entity spawns
-    MIN_SPAWN_INTERVAL_MS: 330,  // Fastest possible spawn interval at high score
-    SWIPE_THRESHOLD_PX: 26,      // Minimum swipe distance in pixels
+    DANGER_ZONE_SCORE: 500,      // Score threshold for environment visual shift
+    INVINCIBILITY_MS: 1500,      // 1.5 seconds of invincibility after taking damage
+    HIT_SPRITE_MS: 450,          // Duration to show rocky-hit.png on hit
+    RUN_FLIP_INTERVAL_MS: 130,   // Interval to toggle scaleX(-1) for 2-frame run illusion
+    JUMP_DURATION_MS: 580,       // Total jump duration in ms
+    JUMP_HEIGHT_RATIO: 0.15,     // Peak jump elevation relative to viewport height
+    JUMP_SCALE_BOOST: 0.28,      // Additional sprite scale multiplier at jump peak
+    COLLISION_Z_MIN: 0.89,       // Depth window start for accurate lane hitbox
+    COLLISION_Z_MAX: 0.99,       // Depth window end for accurate lane hitbox
+    DESPAWN_Z: 1.24,             // Depth past screen bottom where objects are removed
+    BASE_SPEED_Z: 0.56,          // Base depth units per second
+    BASE_SPAWN_INTERVAL_MS: 960, // Base enemy/candy spawn interval
+    MIN_SPAWN_INTERVAL_MS: 310,  // Minimum spawn interval cap at high scores
+    SWIPE_THRESHOLD_PX: 26,      // Touch swipe threshold in pixels
   };
 
   // DOM Elements
   const viewportEl = document.getElementById('game-viewport');
+  const bgRoadEl = document.getElementById('bg-road');
+  const dangerZoneTintEl = document.getElementById('danger-zone-tint');
   const speedLinesLayerEl = document.getElementById('speed-lines-layer');
   const entitiesLayerEl = document.getElementById('entities-layer');
   const playerContainerEl = document.getElementById('player-container');
   const playerSpriteEl = document.getElementById('player-sprite');
   const playerShadowEl = document.getElementById('player-shadow');
   const damageFlashEl = document.getElementById('damage-flash');
+
+  // HUD & Overlay Elements
+  const hudEl = document.getElementById('hud');
   const scoreValueEl = document.getElementById('score-value');
-  const finalScoreValueEl = document.getElementById('final-score-value');
-  const gameOverOverlayEl = document.getElementById('game-over-overlay');
-  const restartBtnEl = document.getElementById('restart-btn');
-  const controlsToastEl = document.getElementById('controls-toast');
   const heartEls = Array.from(document.querySelectorAll('#lives-panel .heart'));
+  const pauseBtnEl = document.getElementById('pause-btn');
+
+  const mainMenuOverlayEl = document.getElementById('main-menu-overlay');
+  const menuButtonsGroupEl = document.getElementById('menu-buttons-group');
+  const instructionsPanelEl = document.getElementById('instructions-panel');
+  const playBtnEl = document.getElementById('play-btn');
+  const howToPlayBtnEl = document.getElementById('how-to-play-btn');
+  const closeInstructionsBtnEl = document.getElementById('close-instructions-btn');
+
+  const pauseOverlayEl = document.getElementById('pause-overlay');
+  const resumeBtnEl = document.getElementById('resume-btn');
+  const pauseRestartBtnEl = document.getElementById('pause-restart-btn');
+  const pauseHomeBtnEl = document.getElementById('pause-home-btn');
+
+  const gameOverOverlayEl = document.getElementById('game-over-overlay');
+  const finalScoreValueEl = document.getElementById('final-score-value');
+  const highScoreValueEl = document.getElementById('high-score-value');
+  const gameoverRestartBtnEl = document.getElementById('gameover-restart-btn');
+  const gameoverHomeBtnEl = document.getElementById('gameover-home-btn');
+
+  // Audio Instances (Strictly using the 3 required audio files)
+  const audioPool = {
+    click: new Audio(ASSETS.sfxClick),
+    collect: new Audio(ASSETS.sfxCollect),
+    hit: new Audio(ASSETS.sfxHit),
+  };
+
+  Object.values(audioPool).forEach((audio) => {
+    audio.preload = 'auto';
+  });
+
+  /**
+   * Plays one of the 3 game sound effects cleanly from the beginning.
+   */
+  function playSfx(type) {
+    const sound = audioPool[type];
+    if (!sound) return;
+    try {
+      sound.currentTime = 0;
+      const playPromise = sound.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => {});
+      }
+    } catch {
+      // Ignore autoplay restrictions before user interaction
+    }
+  }
 
   // Viewport Geometry Cache
   const metrics = {
@@ -68,43 +124,82 @@
     laneSpread: 0,
   };
 
-  // Mutable Game State
+  // Game State Machine ('MENU' | 'PLAYING' | 'PAUSED' | 'GAMEOVER')
   const state = {
-    isRunning: false,
+    mode: 'MENU',
     score: 0,
+    highScore: 0,
     lives: CONFIG.MAX_LIVES,
     elapsedMs: 0,
     lastFrameTime: 0,
     spawnTimerMs: 0,
     speedLineTimerMs: 0,
+    runFlipTimerMs: 0,
+    runFlipped: false,
     lastSpawnLane: null,
+    dangerZoneActive: false,
     player: {
       lane: 0,               // -1 = Left, 0 = Center, 1 = Right
-      visualLane: 0,         // Smoothly interpolated X lane for snappy movement
+      visualLane: 0,         // Smoothly interpolated lane position
       isJumping: false,
       jumpElapsedMs: 0,
-      jumpProgress: 0,       // 0..1 normalized jump progress
-      jumpArc: 0,            // 0..1 sinusoidal elevation factor
+      jumpProgress: 0,
+      jumpArc: 0,
       invincibleRemainingMs: 0,
       hitSpriteRemainingMs: 0,
       currentSprite: ASSETS.rockyRun,
     },
-    entities: [],            // Active enemies and candies
-    speedLines: [],          // Active radial speed lines
+    entities: [],
+    speedLines: [],
   };
 
   /**
-   * Preloads all game images so sprite switches have zero flicker.
+   * Loads saved High Score from localStorage.
    */
-  function preloadAssets() {
-    Object.values(ASSETS).forEach((src) => {
+  function loadHighScore() {
+    try {
+      const saved = window.localStorage.getItem(STORAGE_KEY_HIGH_SCORE);
+      state.highScore = saved ? Math.max(0, parseInt(saved, 10) || 0) : 0;
+    } catch {
+      state.highScore = 0;
+    }
+  }
+
+  /**
+   * Saves new High Score to localStorage if current score exceeds it.
+   */
+  function saveHighScore(newScore) {
+    if (newScore > state.highScore) {
+      state.highScore = newScore;
+      try {
+        window.localStorage.setItem(STORAGE_KEY_HIGH_SCORE, String(state.highScore));
+      } catch {
+        // Ignore storage errors in private browsing
+      }
+    }
+  }
+
+  /**
+   * Preloads all sprite images to prevent flicker on state transitions.
+   */
+  function preloadImages() {
+    [
+      ASSETS.bgRoad,
+      ASSETS.rockyRun,
+      ASSETS.rockyJump,
+      ASSETS.rockyHit,
+      ASSETS.enemyPumpkin,
+      ASSETS.enemyGhost,
+      ASSETS.enemyBat,
+      ASSETS.candy,
+    ].forEach((src) => {
       const img = new Image();
       img.src = src;
     });
   }
 
   /**
-   * Recalculates viewport coordinates for vanishing point and 3-lane projection.
+   * Updates cached viewport coordinates for vanishing point (50% X, 45% Y) and lanes.
    */
   function updateViewportMetrics() {
     const rect = viewportEl.getBoundingClientRect();
@@ -118,27 +213,43 @@
   }
 
   /**
-   * Computes current speed multiplier and spawn interval mathematically from score.
+   * Scales base speed, particle speed, and enemy spawn rates mathematically from score.
    */
   function getDifficultyParams() {
-    // Score drives a smooth mathematical escalation in speed and spawn rate
-    const scoreFactor = state.score / 100;
-    const timeFactor = state.elapsedMs / 45000;
-    const speedMultiplier = 1 + (scoreFactor * 0.22) + Math.min(0.65, timeFactor * 0.25);
+    if (state.mode === 'MENU') {
+      return {
+        speedZ: CONFIG.BASE_SPEED_Z,
+        particleSpeedZ: CONFIG.BASE_SPEED_Z * 1.45,
+        spawnIntervalMs: CONFIG.BASE_SPAWN_INTERVAL_MS,
+      };
+    }
 
+    const scoreFactor = state.score / 100;
+    const speedMultiplier = 1 + (scoreFactor * 0.24) + Math.pow(scoreFactor, 1.15) * 0.04;
+    const speedZ = CONFIG.BASE_SPEED_Z * speedMultiplier;
+    const particleSpeedZ = speedZ * (1.45 + scoreFactor * 0.08);
     const spawnIntervalMs = Math.max(
       CONFIG.MIN_SPAWN_INTERVAL_MS,
-      CONFIG.BASE_SPAWN_INTERVAL_MS / (1 + scoreFactor * 0.26 + timeFactor * 0.2)
+      CONFIG.BASE_SPAWN_INTERVAL_MS / (1 + scoreFactor * 0.30)
     );
 
-    return {
-      speedZ: CONFIG.BASE_SPEED_Z * speedMultiplier,
-      spawnIntervalMs,
-    };
+    return { speedZ, particleSpeedZ, spawnIntervalMs };
   }
 
   /**
-   * Projects a normalized depth (z: 0 at horizon -> 1 at player depth) and lane (-1, 0, 1)
+   * Checks if score has reached 500 to trigger the Danger Zone visual environment shift.
+   */
+  function updateEnvironmentShift() {
+    const shouldActivate = state.score >= CONFIG.DANGER_ZONE_SCORE;
+    if (shouldActivate !== state.dangerZoneActive) {
+      state.dangerZoneActive = shouldActivate;
+      bgRoadEl.classList.toggle('danger-zone', shouldActivate);
+      dangerZoneTintEl.classList.toggle('active', shouldActivate);
+    }
+  }
+
+  /**
+   * Projects normalized depth (z: 0 at horizon -> 1 at player depth) and lane (-1, 0, 1)
    * into 2D screen coordinates and scale.
    */
   function projectPseudo3D(z, laneOffset) {
@@ -153,7 +264,7 @@
   }
 
   /**
-   * Updates the player's sprite source only when state changes to avoid DOM thrashing.
+   * Updates Rocky's image source only when changed.
    */
   function setPlayerSprite(assetPath) {
     if (state.player.currentSprite !== assetPath) {
@@ -163,7 +274,7 @@
   }
 
   /**
-   * Updates the HUD score and hearts display.
+   * Synchronizes top HUD score and 3 hearts display.
    */
   function syncHud() {
     scoreValueEl.textContent = String(state.score).padStart(5, '0');
@@ -173,39 +284,42 @@
   }
 
   /**
-   * Moves Rocky left or right across the 3 lanes (-1, 0, 1).
+   * Switches Rocky's lane Left (-1) or Right (+1).
    */
   function changeLane(direction) {
-    if (!state.isRunning) return;
-    const nextLane = Math.max(-1, Math.min(1, state.player.lane + direction));
-    state.player.lane = nextLane;
+    if (state.mode !== 'PLAYING') return;
+    state.player.lane = Math.max(-1, Math.min(1, state.player.lane + direction));
   }
 
   /**
-   * Initiates Rocky's jump if currently grounded.
+   * Initiates a jump when grounded.
    */
   function triggerJump() {
-    if (!state.isRunning || state.player.isJumping) return;
+    if (state.mode !== 'PLAYING' || state.player.isJumping) return;
     state.player.isJumping = true;
     state.player.jumpElapsedMs = 0;
     state.player.jumpProgress = 0;
     state.player.jumpArc = 0;
+    playerSpriteEl.classList.remove('flip-x');
     if (state.player.hitSpriteRemainingMs <= 0) {
       setPlayerSprite(ASSETS.rockyJump);
     }
   }
 
   /**
-   * Spawns a dynamic speed line at the vanishing point to create the OutRun speed illusion.
+   * Spawns a ground speed line exactly at the vanishing point (50% X, 45% Y).
    */
   function spawnSpeedLine() {
     const el = document.createElement('div');
     el.className = 'speed-line';
 
-    // Pick a radial trajectory along road edges or lane dividers
-    const trajectories = [-1.45, -1.15, -0.5, 0.5, 1.15, 1.45];
+    // Radial trajectories along the road lanes and shoulders
+    const trajectories = [-1.45, -1.12, -0.48, 0.48, 1.12, 1.45];
     const laneTrajectory = trajectories[Math.floor(Math.random() * trajectories.length)] +
-      (Math.random() * 0.14 - 0.07);
+      (Math.random() * 0.12 - 0.06);
+
+    const initialProj = projectPseudo3D(0.01, laneTrajectory);
+    el.style.transform = `translate3d(${initialProj.screenX}px, ${initialProj.screenY}px, 0) scale(${CONFIG.MIN_SPAWN_SCALE})`;
 
     speedLinesLayerEl.appendChild(el);
     state.speedLines.push({
@@ -216,35 +330,34 @@
   }
 
   /**
-   * Spawns an enemy (Pumpkin, Ghost, Bat) or Collectible (Candy) exactly at the vanishing point.
+   * Spawns an enemy or candy collectible at the exact vanishing point with near-zero scale.
    */
   function spawnEntity() {
     const lanes = [-1, 0, 1];
     let lane = lanes[Math.floor(Math.random() * lanes.length)];
 
-    // Reduce repetitive identical lane spawns
     if (lane === state.lastSpawnLane && Math.random() < 0.65) {
-      const otherLanes = lanes.filter((l) => l !== lane);
-      lane = otherLanes[Math.floor(Math.random() * otherLanes.length)];
+      const available = lanes.filter((l) => l !== lane);
+      lane = available[Math.floor(Math.random() * available.length)];
     }
     state.lastSpawnLane = lane;
 
-    // Determine entity type: 32% Candy, 30% Pumpkin (ground), 19% Ghost (flying), 19% Bat (flying)
+    // 34% Candy, 30% Pumpkin (ground), 18% Ghost (flying), 18% Bat (flying)
     const roll = Math.random();
     let type = 'pumpkin';
     let isFlying = false;
     let isCollectible = false;
     let asset = ASSETS.enemyPumpkin;
 
-    if (roll < 0.32) {
+    if (roll < 0.34) {
       type = 'candy';
       isCollectible = true;
       asset = ASSETS.candy;
-    } else if (roll < 0.62) {
+    } else if (roll < 0.64) {
       type = 'pumpkin';
       isFlying = false;
       asset = ASSETS.enemyPumpkin;
-    } else if (roll < 0.81) {
+    } else if (roll < 0.82) {
       type = 'ghost';
       isFlying = true;
       asset = ASSETS.enemyGhost;
@@ -263,7 +376,6 @@
     img.draggable = false;
     el.appendChild(img);
 
-    // Position immediately at the vanishing point with near-zero scale
     const initialProj = projectPseudo3D(0, lane);
     el.style.transform = `translate3d(${initialProj.screenX}px, ${initialProj.screenY}px, 0) translate(-50%, -100%) scale(${CONFIG.MIN_SPAWN_SCALE})`;
 
@@ -277,13 +389,13 @@
       isFlying,
       isCollectible,
       resolved: false,
-      Removing: false,
+      removing: false,
       bobSeed: Math.random() * Math.PI * 2,
     });
   }
 
   /**
-   * Spawns a floating "+10" score popup at the collection coordinates.
+   * Spawns a "+10" floating score indicator when candy is collected.
    */
   function spawnScorePopup(x, y) {
     const popup = document.createElement('div');
@@ -294,55 +406,67 @@
     entitiesLayerEl.appendChild(popup);
 
     window.setTimeout(() => {
-      if (popup.parentNode) {
-        popup.parentNode.removeChild(popup);
-      }
-    }, 550);
+      if (popup.parentNode) popup.parentNode.removeChild(popup);
+    }, 500);
   }
 
   /**
-   * Handles collecting a candy item (+10 score + pop/fade CSS animation).
+   * Collects candy: +10 points, plays sfx-collect.mp3, CSS pop/fade animation, NO vibration.
    */
   function collectCandy(entity, screenX, screenY, scale) {
     entity.resolved = true;
-    entity.Removing = true;
+    entity.removing = true;
+
     state.score += CONFIG.CANDY_POINTS;
     syncHud();
+    updateEnvironmentShift();
+    playSfx('collect');
 
     entity.el.style.setProperty('--collect-x', `${screenX}px`);
     entity.el.style.setProperty('--collect-y', `${screenY}px`);
     entity.el.style.setProperty('--collect-scale', String(scale));
     entity.el.classList.add('candy-collected');
 
-    spawnScorePopup(screenX, screenY - 36 * scale);
+    spawnScorePopup(screenX, screenY - 34 * scale);
 
     window.setTimeout(() => {
-      if (entity.el.parentNode) {
-        entity.el.parentNode.removeChild(entity.el);
-      }
-    }, 340);
+      if (entity.el.parentNode) entity.el.parentNode.removeChild(entity.el);
+    }, 320);
   }
 
   /**
-   * Handles player collision with an enemy.
+   * Handles enemy hit: -1 life, sfx-hit.mp3, red flash + camera shake,
+   * navigator.vibrate(200), rocky-hit.png, and 1.5s invincibility flicker.
    */
   function handlePlayerHit(entity) {
     entity.resolved = true;
 
-    // Ignore damage while invincible
     if (state.player.invincibleRemainingMs > 0) return;
 
     state.lives = Math.max(0, state.lives - 1);
     syncHud();
+    playSfx('hit');
 
-    // Trigger red screen damage flash
+    // Strong haptic feedback strictly on enemy hit
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      try {
+        navigator.vibrate(200);
+      } catch {
+        // Ignore on unsupported devices
+      }
+    }
+
+    // Trigger red screen flash + camera shake
     damageFlashEl.classList.remove('flash-active');
-    void damageFlashEl.offsetWidth; // Force reflow to restart animation
+    viewportEl.classList.remove('camera-shake');
+    void damageFlashEl.offsetWidth;
     damageFlashEl.classList.add('flash-active');
+    viewportEl.classList.add('camera-shake');
 
-    // Switch Rocky to hit sprite and grant 1.5s invincibility
+    // Switch to rocky-hit.png and start 1.5s invincibility
     state.player.hitSpriteRemainingMs = CONFIG.HIT_SPRITE_MS;
     state.player.invincibleRemainingMs = CONFIG.INVINCIBILITY_MS;
+    playerSpriteEl.classList.remove('flip-x');
     setPlayerSprite(ASSETS.rockyHit);
     playerContainerEl.classList.add('invincible');
 
@@ -352,26 +476,16 @@
   }
 
   /**
-   * Stops the game loop and displays the Game Over overlay.
-   */
-  function triggerGameOver() {
-    state.isRunning = false;
-    playerContainerEl.classList.remove('invincible');
-    finalScoreValueEl.textContent = String(state.score);
-    gameOverOverlayEl.classList.remove('hidden');
-  }
-
-  /**
-   * Updates player position, jump arc, and sprite states each frame.
+   * Updates Rocky's position, jump arc, invincibility, and 2-frame scaleX(-1) running animation.
    */
   function updatePlayer(dtMs) {
     const p = state.player;
 
-    // Smooth horizontal lane interpolation
+    // Smooth lane X interpolation
     const lerpFactor = 1 - Math.pow(0.00015, dtMs / 1000);
     p.visualLane += (p.lane - p.visualLane) * lerpFactor;
 
-    // Update jump physics
+    // Jump arc calculation
     if (p.isJumping) {
       p.jumpElapsedMs += dtMs;
       p.jumpProgress = Math.min(1, p.jumpElapsedMs / CONFIG.JUMP_DURATION_MS);
@@ -385,12 +499,12 @@
       }
     }
 
-    // Update damage hit sprite timer
+    // Hit sprite countdown
     if (p.hitSpriteRemainingMs > 0) {
       p.hitSpriteRemainingMs = Math.max(0, p.hitSpriteRemainingMs - dtMs);
     }
 
-    // Update 1.5s invincibility timer
+    // Invincibility countdown
     if (p.invincibleRemainingMs > 0) {
       p.invincibleRemainingMs = Math.max(0, p.invincibleRemainingMs - dtMs);
       if (p.invincibleRemainingMs <= 0) {
@@ -398,16 +512,23 @@
       }
     }
 
-    // Select correct Rocky sprite
+    // Sprite state + 2-frame horizontal flip running animation trick
     if (p.hitSpriteRemainingMs > 0) {
       setPlayerSprite(ASSETS.rockyHit);
+      playerSpriteEl.classList.remove('flip-x');
     } else if (p.isJumping) {
       setPlayerSprite(ASSETS.rockyJump);
+      playerSpriteEl.classList.remove('flip-x');
     } else {
       setPlayerSprite(ASSETS.rockyRun);
+      state.runFlipTimerMs += dtMs;
+      if (state.runFlipTimerMs >= CONFIG.RUN_FLIP_INTERVAL_MS) {
+        state.runFlipTimerMs %= CONFIG.RUN_FLIP_INTERVAL_MS;
+        state.runFlipped = !state.runFlipped;
+        playerSpriteEl.classList.toggle('flip-x', state.runFlipped);
+      }
     }
 
-    // Compute player screen coordinates & jump scale
     const playerX = metrics.vanishingX + (p.visualLane * metrics.laneSpread);
     const jumpOffsetY = p.jumpArc * (metrics.height * CONFIG.JUMP_HEIGHT_RATIO);
     const playerY = metrics.playerY - jumpOffsetY;
@@ -416,19 +537,17 @@
     playerContainerEl.style.transform =
       `translate3d(${playerX}px, ${playerY}px, 0) translate(-50%, -100%) scale(${playerScale.toFixed(3)})`;
 
-    // Shrink shadow while airborne
     const shadowScale = 1 - (p.jumpArc * 0.45);
     playerShadowEl.style.transform = `translateX(-50%) scale(${shadowScale.toFixed(2)})`;
-    playerShadowEl.style.opacity = String((0.65 - p.jumpArc * 0.35).toFixed(2));
   }
 
   /**
-   * Updates all dynamic speed lines.
+   * Updates dynamic ground speed lines originating from the vanishing point.
    */
-  function updateSpeedLines(dtSec, speedZ) {
+  function updateSpeedLines(dtSec, particleSpeedZ) {
     for (let i = state.speedLines.length - 1; i >= 0; i--) {
       const line = state.speedLines[i];
-      line.z += speedZ * 1.45 * dtSec;
+      line.z += particleSpeedZ * dtSec;
 
       if (line.z >= CONFIG.DESPAWN_Z) {
         if (line.el.parentNode) line.el.parentNode.removeChild(line.el);
@@ -440,8 +559,8 @@
       const dx = proj.screenX - metrics.vanishingX;
       const dy = proj.screenY - metrics.horizonY;
       const angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI - 90;
-      const lineScaleY = Math.max(0.1, proj.scale * 1.6);
-      const opacity = Math.min(0.85, line.z * 2.2);
+      const lineScaleY = Math.max(0.08, proj.scale * 1.65);
+      const opacity = Math.min(0.9, line.z * 2.4);
 
       line.el.style.opacity = String(opacity.toFixed(2));
       line.el.style.transform =
@@ -450,20 +569,19 @@
   }
 
   /**
-   * Updates all dynamic entities (enemies and candies) and checks collisions.
+   * Updates all active enemies and candies and performs lane + depth collision detection.
    */
   function updateEntities(dtSec, speedZ) {
     for (let i = state.entities.length - 1; i >= 0; i--) {
       const entity = state.entities[i];
 
-      if (entity.Removing) {
+      if (entity.removing) {
         state.entities.splice(i, 1);
         continue;
       }
 
       entity.z += speedZ * dtSec;
 
-      // Despawn objects once they pass off the bottom of the screen
       if (entity.z >= CONFIG.DESPAWN_Z) {
         if (entity.el.parentNode) entity.el.parentNode.removeChild(entity.el);
         state.entities.splice(i, 1);
@@ -472,7 +590,7 @@
 
       const proj = projectPseudo3D(entity.z, entity.lane);
 
-      // Flying enemies hover above the road surface and bob sinusoidally
+      // Flying enemies hover above the road and bob vertically
       let elevationOffset = 0;
       if (entity.isFlying) {
         const hoverHeight = metrics.height * 0.085 * proj.scale;
@@ -482,12 +600,11 @@
 
       const renderY = proj.screenY - elevationOffset;
 
-      // Layer ordering: objects past the player plane render in front of Rocky
       entity.el.style.zIndex = String(Math.floor(entity.z * 16));
       entity.el.style.transform =
         `translate3d(${proj.screenX}px, ${renderY}px, 0) translate(-50%, -100%) scale(${proj.scale.toFixed(4)})`;
 
-      // Accurate lane + depth collision detection
+      // Precise collision check based on lane matching and depth window
       if (
         !entity.resolved &&
         entity.z >= CONFIG.COLLISION_Z_MIN &&
@@ -495,15 +612,14 @@
         entity.lane === state.player.lane
       ) {
         if (entity.isCollectible) {
-          // Candy can be collected on the ground or during the start/end of a jump
           collectCandy(entity, proj.screenX, renderY, proj.scale);
         } else if (entity.isFlying) {
-          // Flying enemies (Ghosts, Bats) hit Rocky even when he is jumping
+          // Flying enemies (ghosts/bats) hit Rocky even if jumping
           handlePlayerHit(entity);
         } else {
-          // Ground enemies (Pumpkins) are dodged when Rocky is jumping
-          const isHighEnoughToDodge = state.player.isJumping && state.player.jumpArc > 0.25;
-          if (!isHighEnoughToDodge) {
+          // Ground enemies (pumpkins) are ignored when Rocky is jumping
+          const dodgedByJump = state.player.isJumping && state.player.jumpArc > 0.22;
+          if (!dodgedByJump) {
             handlePlayerHit(entity);
           } else {
             entity.resolved = true;
@@ -514,71 +630,63 @@
   }
 
   /**
-   * Main requestAnimationFrame Game Loop.
+   * Main requestAnimationFrame loop (runs in both 'MENU' idle and 'PLAYING' states).
    */
-  function gameLoop(timestamp) {
-    if (!state.isRunning) return;
+  function tick(timestamp) {
+    if (state.mode === 'PAUSED' || state.mode === 'GAMEOVER') {
+      return;
+    }
 
     if (!state.lastFrameTime) {
       state.lastFrameTime = timestamp;
     }
 
-    // Clamp delta time to prevent physics jumps when switching tabs
     const dtMs = Math.min(50, Math.max(0, timestamp - state.lastFrameTime));
     const dtSec = dtMs / 1000;
     state.lastFrameTime = timestamp;
     state.elapsedMs += dtMs;
 
-    // Fade out controls toast after 4.5 seconds
-    if (state.elapsedMs > 4500 && controlsToastEl && !controlsToastEl.classList.contains('fade-out')) {
-      controlsToastEl.classList.add('fade-out');
-    }
+    const { speedZ, particleSpeedZ, spawnIntervalMs } = getDifficultyParams();
 
-    const { speedZ, spawnIntervalMs } = getDifficultyParams();
-
-    // Spawn dynamic speed lines from the vanishing point
+    // Continuously spawn speed lines in both MENU idle mode and PLAYING mode
     state.speedLineTimerMs += dtMs;
-    const speedLineInterval = Math.max(45, 95 / (speedZ / CONFIG.BASE_SPEED_Z));
+    const speedLineInterval = Math.max(40, 90 / (particleSpeedZ / CONFIG.BASE_SPEED_Z));
     while (state.speedLineTimerMs >= speedLineInterval) {
       state.speedLineTimerMs -= speedLineInterval;
       spawnSpeedLine();
     }
 
-    // Spawn enemies and candies from the vanishing point
-    state.spawnTimerMs += dtMs;
-    if (state.spawnTimerMs >= spawnIntervalMs) {
-      state.spawnTimerMs %= spawnIntervalMs;
-      spawnEntity();
+    updateSpeedLines(dtSec, particleSpeedZ);
+    updatePlayer(dtMs);
+
+    // Only spawn and update obstacles/candies while actively PLAYING
+    if (state.mode === 'PLAYING') {
+      state.spawnTimerMs += dtMs;
+      if (state.spawnTimerMs >= spawnIntervalMs) {
+        state.spawnTimerMs %= spawnIntervalMs;
+        spawnEntity();
+      }
+      updateEntities(dtSec, speedZ);
     }
 
-    updateSpeedLines(dtSec, speedZ);
-    updatePlayer(dtMs);
-    updateEntities(dtSec, speedZ);
-
-    window.requestAnimationFrame(gameLoop);
+    window.requestAnimationFrame(tick);
   }
 
   /**
-   * Resets all game states cleanly and starts a fresh run.
+   * Clears active entities and resets player state.
    */
-  function startGame() {
+  function resetWorldState() {
     updateViewportMetrics();
-
-    // Clear existing DOM nodes
-    speedLinesLayerEl.innerHTML = '';
     entitiesLayerEl.innerHTML = '';
-
-    // Reset state
-    state.isRunning = true;
+    state.entities = [];
     state.score = 0;
     state.lives = CONFIG.MAX_LIVES;
     state.elapsedMs = 0;
     state.lastFrameTime = 0;
     state.spawnTimerMs = 0;
-    state.speedLineTimerMs = 0;
+    state.runFlipTimerMs = 0;
+    state.runFlipped = false;
     state.lastSpawnLane = null;
-    state.entities = [];
-    state.speedLines = [];
 
     state.player.lane = 0;
     state.player.visualLane = 0;
@@ -590,38 +698,158 @@
     state.player.hitSpriteRemainingMs = 0;
 
     playerContainerEl.classList.remove('invincible');
+    playerSpriteEl.classList.remove('flip-x');
     damageFlashEl.classList.remove('flash-active');
-    gameOverOverlayEl.classList.add('hidden');
-    if (controlsToastEl) {
-      controlsToastEl.classList.remove('fade-out');
-    }
+    viewportEl.classList.remove('camera-shake', 'is-paused');
 
     setPlayerSprite(ASSETS.rockyRun);
+    updateEnvironmentShift();
     syncHud();
     updatePlayer(0);
 
-    // Seed initial speed lines so the road feels alive on frame 1
-    for (let i = 0; i < 8; i++) {
-      spawnSpeedLine();
-      state.speedLines[state.speedLines.length - 1].z = (i + 1) * 0.12;
+    // Ensure speed lines are pre-populated on the road
+    if (state.speedLines.length === 0) {
+      for (let i = 0; i < 8; i++) {
+        spawnSpeedLine();
+        state.speedLines[state.speedLines.length - 1].z = (i + 1) * 0.12;
+      }
     }
-
-    window.requestAnimationFrame(gameLoop);
   }
 
   /**
-   * Registers desktop keyboard and mobile touch/swipe listeners.
+   * Enters Main Menu idle state (road idles and Rocky simulates running).
    */
-  function bindControls() {
-    // Desktop Arrow Keys (and WASD / Space fallback)
+  function enterMainMenu() {
+    resetWorldState();
+    state.mode = 'MENU';
+    hudEl.classList.add('hidden');
+    pauseOverlayEl.classList.add('hidden');
+    gameOverOverlayEl.classList.add('hidden');
+    instructionsPanelEl.classList.add('hidden');
+    menuButtonsGroupEl.classList.remove('hidden');
+    mainMenuOverlayEl.classList.remove('hidden');
+
+    window.requestAnimationFrame(tick);
+  }
+
+  /**
+   * Starts or restarts an active game run.
+   */
+  function startNewRun() {
+    resetWorldState();
+    state.mode = 'PLAYING';
+    mainMenuOverlayEl.classList.add('hidden');
+    pauseOverlayEl.classList.add('hidden');
+    gameOverOverlayEl.classList.add('hidden');
+    hudEl.classList.remove('hidden');
+
+    window.requestAnimationFrame(tick);
+  }
+
+  /**
+   * Freezes the game loop and displays the Pause Menu overlay.
+   */
+  function pauseGame() {
+    if (state.mode !== 'PLAYING') return;
+    state.mode = 'PAUSED';
+    viewportEl.classList.add('is-paused');
+    pauseOverlayEl.classList.remove('hidden');
+  }
+
+  /**
+   * Resumes the game loop from Pause.
+   */
+  function resumeGame() {
+    if (state.mode !== 'PAUSED') return;
+    state.mode = 'PLAYING';
+    state.lastFrameTime = 0;
+    viewportEl.classList.remove('is-paused');
+    pauseOverlayEl.classList.add('hidden');
+    window.requestAnimationFrame(tick);
+  }
+
+  /**
+   * Triggers Game Over, saves High Score to localStorage, and opens overlay.
+   */
+  function triggerGameOver() {
+    state.mode = 'GAMEOVER';
+    playerContainerEl.classList.remove('invincible');
+    saveHighScore(state.score);
+
+    finalScoreValueEl.textContent = String(state.score);
+    highScoreValueEl.textContent = String(state.highScore);
+    gameOverOverlayEl.classList.remove('hidden');
+  }
+
+  /**
+   * Wires all UI buttons (every click triggers sfx-click.mp3), keyboard, and swipe controls.
+   */
+  function bindEvents() {
+    // Main Menu Buttons
+    playBtnEl.addEventListener('click', () => {
+      playSfx('click');
+      startNewRun();
+    });
+
+    howToPlayBtnEl.addEventListener('click', () => {
+      playSfx('click');
+      menuButtonsGroupEl.classList.add('hidden');
+      instructionsPanelEl.classList.remove('hidden');
+    });
+
+    closeInstructionsBtnEl.addEventListener('click', () => {
+      playSfx('click');
+      instructionsPanelEl.classList.add('hidden');
+      menuButtonsGroupEl.classList.remove('hidden');
+    });
+
+    // HUD Pause Button
+    pauseBtnEl.addEventListener('click', () => {
+      playSfx('click');
+      pauseGame();
+    });
+
+    // Pause Overlay Buttons
+    resumeBtnEl.addEventListener('click', () => {
+      playSfx('click');
+      resumeGame();
+    });
+
+    pauseRestartBtnEl.addEventListener('click', () => {
+      playSfx('click');
+      startNewRun();
+    });
+
+    pauseHomeBtnEl.addEventListener('click', () => {
+      playSfx('click');
+      enterMainMenu();
+    });
+
+    // Game Over Overlay Buttons
+    gameoverRestartBtnEl.addEventListener('click', () => {
+      playSfx('click');
+      startNewRun();
+    });
+
+    gameoverHomeBtnEl.addEventListener('click', () => {
+      playSfx('click');
+      enterMainMenu();
+    });
+
+    // PC Keyboard Controls (Arrows / WASD + Space + Escape to Pause)
     window.addEventListener('keydown', (e) => {
-      if (!state.isRunning) {
-        if ((e.key === 'Enter' || e.key === ' ') && !gameOverOverlayEl.classList.contains('hidden')) {
-          e.preventDefault();
-          startGame();
+      if (e.key === 'Escape') {
+        if (state.mode === 'PLAYING') {
+          playSfx('click');
+          pauseGame();
+        } else if (state.mode === 'PAUSED') {
+          playSfx('click');
+          resumeGame();
         }
         return;
       }
+
+      if (state.mode !== 'PLAYING') return;
 
       if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
         e.preventDefault();
@@ -635,7 +863,7 @@
       }
     });
 
-    // Mobile Touch Swipe Detection (Primary for Vercel deployment)
+    // Mobile Touch Swipe Controls
     let touchStartX = 0;
     let touchStartY = 0;
     let swipeHandled = false;
@@ -654,9 +882,10 @@
     viewportEl.addEventListener(
       'touchmove',
       (e) => {
-        // Prevent browser pull-to-refresh and scrolling
-        e.preventDefault();
-        if (swipeHandled || !state.isRunning || e.touches.length !== 1) return;
+        if (state.mode === 'PLAYING') {
+          e.preventDefault();
+        }
+        if (swipeHandled || state.mode !== 'PLAYING' || e.touches.length !== 1) return;
 
         const dx = e.touches[0].clientX - touchStartX;
         const dy = e.touches[0].clientY - touchStartY;
@@ -679,7 +908,7 @@
     viewportEl.addEventListener(
       'touchend',
       (e) => {
-        if (swipeHandled || !state.isRunning || e.changedTouches.length === 0) return;
+        if (swipeHandled || state.mode !== 'PLAYING' || e.changedTouches.length === 0) return;
 
         const dx = e.changedTouches[0].clientX - touchStartX;
         const dy = e.changedTouches[0].clientY - touchStartY;
@@ -698,19 +927,14 @@
       { passive: true }
     );
 
-    // Restart Button
-    restartBtnEl.addEventListener('click', () => {
-      startGame();
-    });
-
-    // Responsive Resize Handler
     window.addEventListener('resize', () => {
       updateViewportMetrics();
     });
   }
 
-  // Boot Game
-  preloadAssets();
-  bindControls();
-  startGame();
+  // Initialize Game
+  loadHighScore();
+  preloadImages();
+  bindEvents();
+  enterMainMenu();
 })();
