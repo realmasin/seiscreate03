@@ -1,31 +1,75 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Rocky Halloween Runner</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Rocky's Halloween OutRun</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <!-- Preload game assets -->
+  <link rel="preload" as="image" href="assets/bg-road.png" />
+  <link rel="preload" as="image" href="assets/rocky-run.png" />
+  <link rel="preload" as="image" href="assets/rocky-jump.png" />
+  <link rel="preload" as="image" href="assets/rocky-hit.png" />
+  <link rel="preload" as="image" href="assets/enemy-pumpkin.png" />
+  <link rel="preload" as="image" href="assets/enemy-ghost.png" />
+  <link rel="preload" as="image" href="assets/enemy-bat.png" />
+  <link rel="preload" as="image" href="assets/candy.png" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <div id="game-container">
-        <div id="background"></div>
-        
-        <!-- UI Elements -->
-        <div id="ui-layer">
-            <div id="score-board">Score: <span id="score">0</span></div>
-            <div id="lives-board">Lives: <span id="lives">❤️❤️❤️</span></div>
-        </div>
-        
-        <div id="rocky" class="running"></div>
-        <div id="hit-flash"></div>
+  <main id="arcade-shell">
+    <div id="game-viewport">
+      <!-- Static 9:16 background with horizon at ~45% height -->
+      <img id="bg-road" src="assets/bg-road.png" alt="Halloween Highway" draggable="false" />
 
-        <!-- Game Over Screen -->
-        <div id="game-over-screen" class="hidden">
-            <h1>GAME OVER</h1>
-            <p>Score: <span id="final-score">0</span></p>
-            <button id="restart-btn">إعادة اللعب</button>
+      <!-- CRT scanline & vignette atmosphere overlay -->
+      <div id="crt-overlay" aria-hidden="true"></div>
+
+      <!-- Dynamic speed lines spawning from vanishing point -->
+      <div id="speed-lines-layer" aria-hidden="true"></div>
+
+      <!-- Pseudo-3D entities layer (enemies, candies, score popups) -->
+      <div id="entities-layer" aria-hidden="true"></div>
+
+      <!-- Player character (Rocky) -->
+      <div id="player-container">
+        <div id="player-shadow"></div>
+        <img id="player-sprite" src="assets/rocky-run.png" alt="Rocky" draggable="false" />
+      </div>
+
+      <!-- Red screen flash overlay on damage -->
+      <div id="damage-flash" aria-hidden="true"></div>
+
+      <!-- Top Arcade HUD -->
+      <header id="hud">
+        <div id="lives-panel" aria-label="Lives remaining">
+          <span class="heart" data-index="0">&#9829;</span>
+          <span class="heart" data-index="1">&#9829;</span>
+          <span class="heart" data-index="2">&#9829;</span>
         </div>
+        <div id="score-panel">
+          <span class="hud-label">SCORE</span>
+          <span id="score-value">00000</span>
+        </div>
+      </header>
+
+      <!-- Controls hint banner at start -->
+      <div id="controls-toast">SWIPE L/R OR ARROWS TO DODGE &bull; SWIPE UP TO JUMP</div>
+
+      <!-- Game Over UI Overlay -->
+      <section id="game-over-overlay" class="hidden" aria-live="polite">
+        <div class="modal-card">
+          <h1 class="modal-title">GAME OVER</h1>
+          <p class="modal-subtitle">FINAL SCORE</p>
+          <p id="final-score-value">0</p>
+          <button id="restart-btn" type="button">RESTART</button>
+        </div>
+      </section>
     </div>
-    <script src="game.js"></script>
+  </main>
+
+  <script src="game.js"></script>
 </body>
-</html>
+        </html>
