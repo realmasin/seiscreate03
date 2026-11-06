@@ -1,6 +1,6 @@
 /* ==========================================================================
    SEISCREATE #03: ROCKYHALLOWEN - 16-Bit Pseudo-3D Arcade Runner Stylesheet
-   Pixelated rendering, CRT scanline flicker, pure CSS pixel icons, zero emojis
+   Pixelated rendering, CRT scanlines, VHS Pause FX, Pure CSS Pixel Icons
    ========================================================================== */
 
 *,
@@ -64,24 +64,83 @@ body {
   }
 }
 
-/* Freeze all CSS animations while paused */
-#game-viewport.is-paused *,
-#game-viewport.is-paused *::before,
-#game-viewport.is-paused *::after {
+/* World Stage Wrapper */
+#world-stage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  transition: filter 0.25s ease, transform 0.25s ease;
+}
+
+/* Pause Menu VHS Effect: Grayscale, Blur, Contrast & Subtle Horizontal Glitch */
+#game-viewport.is-paused #world-stage {
+  filter: grayscale(0.92) blur(2.5px) contrast(1.28) brightness(0.82);
+  animation: vhsStageJitter 0.28s steps(2, end) infinite;
+}
+
+#game-viewport.is-paused #world-stage *,
+#game-viewport.is-paused #world-stage *::before,
+#game-viewport.is-paused #world-stage *::after {
   animation-play-state: paused !important;
 }
 
-/* Screen Shake on Enemy Hit */
+@keyframes vhsStageJitter {
+  0% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(-2px, 1px, 0); }
+  100% { transform: translate3d(2px, -1px, 0); }
+}
+
+/* VHS Pause Tracking Scanlines & Glitch Bar */
+#vhs-pause-fx {
+  position: absolute;
+  inset: 0;
+  z-index: 27;
+  pointer-events: none;
+  opacity: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0) 0px,
+    rgba(255, 255, 255, 0) 5px,
+    rgba(255, 255, 255, 0.08) 6px,
+    rgba(0, 0, 0, 0.35) 8px
+  );
+}
+
+#vhs-pause-fx::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 18px;
+  background-color: rgba(255, 255, 255, 0.14);
+  border-top: 2px solid rgba(56, 189, 248, 0.35);
+  border-bottom: 2px solid rgba(239, 68, 68, 0.35);
+  animation: vhsTrackingBar 2.2s linear infinite;
+}
+
+#game-viewport.is-paused #vhs-pause-fx {
+  opacity: 1;
+}
+
+@keyframes vhsTrackingBar {
+  0% { top: -10%; }
+  100% { top: 110%; }
+}
+
+/* Severe Camera Shake on Enemy Hit */
 #game-viewport.camera-shake {
-  animation: cameraShakeAnim 0.36s steps(4, end);
+  animation: cameraShakeAnim 0.42s steps(5, end);
 }
 
 @keyframes cameraShakeAnim {
   0% { transform: translate3d(0, 0, 0); }
-  20% { transform: translate3d(-11px, 7px, 0); }
-  40% { transform: translate3d(11px, -7px, 0); }
-  60% { transform: translate3d(-8px, -5px, 0); }
-  80% { transform: translate3d(8px, 5px, 0); }
+  15% { transform: translate3d(-14px, 9px, 0); }
+  35% { transform: translate3d(14px, -9px, 0); }
+  55% { transform: translate3d(-11px, -6px, 0); }
+  75% { transform: translate3d(11px, 6px, 0); }
+  90% { transform: translate3d(-5px, 3px, 0); }
   100% { transform: translate3d(0, 0, 0); }
 }
 
@@ -100,7 +159,7 @@ body {
 
 /* Score >= 1000 Blood Moon Phase Shift */
 #bg-road.blood-moon {
-  filter: hue-rotate(-62deg) saturate(2.15) contrast(1.18) brightness(0.92);
+  filter: hue-rotate(-62deg) saturate(2.15) contrast(1.18) brightness(0.9);
 }
 
 #blood-moon-tint {
@@ -114,7 +173,7 @@ body {
 }
 
 #blood-moon-tint.active {
-  opacity: 0.24;
+  opacity: 0.25;
 }
 
 /* 90s CRT Scanline & Faint Flicker Overlay */
@@ -127,8 +186,8 @@ body {
     to bottom,
     rgba(0, 0, 0, 0) 0px,
     rgba(0, 0, 0, 0) 2px,
-    rgba(0, 0, 0, 0.24) 3px,
-    rgba(0, 0, 0, 0.24) 4px
+    rgba(0, 0, 0, 0.23) 3px,
+    rgba(0, 0, 0, 0.23) 4px
   );
   animation: crtFlicker 0.18s infinite alternate;
 }
@@ -159,6 +218,47 @@ body {
   transform-origin: 50% 0%;
   will-change: transform, opacity;
   pointer-events: none;
+}
+
+/* Horizon Bat Warning Layer (1s before Bat spawns) */
+#warnings-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 18;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.bat-warning-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 28px;
+  height: 28px;
+  background-color: #18061e;
+  border: 3px solid #ef4444;
+  box-shadow: 0 0 0 2px #000000, 0 4px 0 #000000;
+  color: #ef4444;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translate(-50%, -100%);
+  text-shadow: 2px 2px 0 #000000;
+  animation: warningBlink 0.14s steps(2, end) infinite;
+}
+
+@keyframes warningBlink {
+  0%, 100% {
+    opacity: 1;
+    background-color: #ef4444;
+    color: #fff7ed;
+  }
+  50% {
+    opacity: 0.25;
+    background-color: #18061e;
+    color: #ef4444;
+  }
 }
 
 /* Dynamic Entities Layer (Enemies, Candies, Floating Text) */
@@ -215,7 +315,7 @@ body {
   }
 }
 
-/* Floating Text (+10, +20, NEAR MISS! +50) */
+/* Floating Text (+20 at Rocky's position, or NEAR MISS!) */
 .floating-text {
   position: absolute;
   top: 0;
@@ -227,13 +327,13 @@ body {
   white-space: nowrap;
   pointer-events: none;
   will-change: transform, opacity;
-  animation: floatTextUp 0.62s ease-out forwards;
+  animation: floatTextUp 0.65s ease-out forwards;
 }
 
 .floating-text.combo-pts {
   font-size: 14px;
-  color: #fb923c;
-  text-shadow: 2px 2px 0 #000000, 0 0 6px #ea580c;
+  color: #fde047;
+  text-shadow: 2px 2px 0 #7c2d12, -1px -1px 0 #000000;
 }
 
 .floating-text.near-miss-pts {
@@ -245,15 +345,15 @@ body {
 @keyframes floatTextUp {
   0% {
     opacity: 1;
-    transform: translate3d(var(--ft-x, 0px), var(--ft-y, 0px), 0) translate(-50%, -50%) scale(0.8);
+    transform: translate3d(var(--ft-x, 0px), var(--ft-y, 0px), 0) translate(-50%, -50%) scale(0.85);
   }
   30% {
     opacity: 1;
-    transform: translate3d(var(--ft-x, 0px), calc(var(--ft-y, 0px) - 20px), 0) translate(-50%, -50%) scale(1.1);
+    transform: translate3d(var(--ft-x, 0px), calc(var(--ft-y, 0px) - 22px), 0) translate(-50%, -50%) scale(1.12);
   }
   100% {
     opacity: 0;
-    transform: translate3d(var(--ft-x, 0px), calc(var(--ft-y, 0px) - 52px), 0) translate(-50%, -50%) scale(1);
+    transform: translate3d(var(--ft-x, 0px), calc(var(--ft-y, 0px) - 54px), 0) translate(-50%, -50%) scale(1);
   }
 }
 
@@ -309,7 +409,7 @@ body {
   50% { opacity: 0.16; }
 }
 
-/* Dynamic Weather: White Lightning Flash Overlay (Score 500-1000) */
+/* Lightning Flash Overlay (Main Menu ambient & Score 500-1000 Storm Phase) */
 #lightning-flash {
   position: absolute;
   inset: 0;
@@ -323,14 +423,25 @@ body {
   animation: lightningStrikeAnim 0.42s steps(2, end) forwards;
 }
 
+#lightning-flash.subtle-strike {
+  animation: subtleMenuLightning 0.36s steps(2, end) forwards;
+}
+
 @keyframes lightningStrikeAnim {
-  0% { opacity: 0.82; }
+  0% { opacity: 0.78; }
   25% { opacity: 0.12; }
-  50% { opacity: 0.65; }
+  50% { opacity: 0.62; }
   100% { opacity: 0; }
 }
 
-/* Red Damage Flash Overlay */
+@keyframes subtleMenuLightning {
+  0% { opacity: 0.32; }
+  35% { opacity: 0.06; }
+  70% { opacity: 0.22; }
+  100% { opacity: 0; }
+}
+
+/* Red Damage & Death Flash Overlay */
 #damage-flash {
   position: absolute;
   inset: 0;
@@ -341,11 +452,11 @@ body {
 }
 
 #damage-flash.flash-active {
-  animation: damageFlashAnim 0.32s steps(4, end) forwards;
+  animation: damageFlashAnim 0.36s steps(4, end) forwards;
 }
 
 @keyframes damageFlashAnim {
-  0% { opacity: 0.75; }
+  0% { opacity: 0.82; }
   100% { opacity: 0; }
 }
 
@@ -402,12 +513,10 @@ body {
   height: 3px;
   background: transparent;
   box-shadow:
-    /* Row 1 */
     3px 0 0 #ef4444,
     6px 0 0 #ef4444,
     12px 0 0 #ef4444,
     15px 0 0 #ef4444,
-    /* Row 2 */
     0px 3px 0 #ef4444,
     3px 3px 0 #fca5a5,
     6px 3px 0 #ef4444,
@@ -415,7 +524,6 @@ body {
     12px 3px 0 #ef4444,
     15px 3px 0 #ef4444,
     18px 3px 0 #b91c1c,
-    /* Row 3 */
     0px 6px 0 #ef4444,
     3px 6px 0 #ef4444,
     6px 6px 0 #ef4444,
@@ -423,17 +531,14 @@ body {
     12px 6px 0 #ef4444,
     15px 6px 0 #ef4444,
     18px 6px 0 #b91c1c,
-    /* Row 4 */
     3px 9px 0 #ef4444,
     6px 9px 0 #ef4444,
     9px 9px 0 #ef4444,
     12px 9px 0 #ef4444,
     15px 9px 0 #b91c1c,
-    /* Row 5 */
     6px 12px 0 #ef4444,
     9px 12px 0 #ef4444,
     12px 12px 0 #b91c1c,
-    /* Row 6 */
     9px 15px 0 #b91c1c;
   filter: drop-shadow(2px 2px 0 #000000);
 }
@@ -476,7 +581,7 @@ body {
   align-items: center;
   gap: 8px;
   padding: 5px 8px;
-  background-color: rgba(24, 9, 44, 0.85);
+  background-color: rgba(24, 9, 44, 0.88);
   border: 2px solid #f97316;
   box-shadow: 2px 2px 0 #000000;
   animation: comboShake 0.16s steps(2, end) infinite;
@@ -529,7 +634,7 @@ body {
   100% { transform: translate3d(-1px, -1px, 0) rotate(0deg); }
 }
 
-/* Rolling Score Display */
+/* Mechanical Rolling Score Display */
 #score-panel {
   display: flex;
   flex-direction: column;
@@ -550,7 +655,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Pure CSS Pixel-Art Pause Button */
+/* Pure CSS Pixel-Art Pause Button & Menu Buttons */
 .ui-btn {
   font-family: 'Press Start 2P', monospace;
   cursor: pointer;
@@ -620,7 +725,7 @@ body {
   font-size: 12px;
   line-height: 1.5;
   color: #fde047;
-  background-color: rgba(17, 6, 31, 0.9);
+  background-color: rgba(17, 6, 31, 0.92);
   border: 3px solid #f97316;
   box-shadow: 0 5px 0 #000000;
   text-shadow: 2px 2px 0 #9a3412, -1px -1px 0 #000000;
@@ -643,7 +748,7 @@ body {
   position: absolute;
   inset: 0;
   z-index: 35;
-  background-color: rgba(8, 3, 13, 0.68);
+  background-color: rgba(8, 3, 13, 0.65);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -663,16 +768,16 @@ body {
 
 .modal-box {
   width: 100%;
-  max-width: 336px;
+  max-width: 340px;
   background-color: rgba(24, 10, 44, 0.94);
   border: 4px solid #f97316;
   box-shadow: 0 0 0 4px #000000, 0 12px 0 #000000;
-  padding: 24px 18px;
+  padding: 22px 16px;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
+  gap: 16px;
 }
 
 .event-branding {
@@ -684,6 +789,13 @@ body {
   border-bottom: 2px solid #9a3412;
   padding-bottom: 8px;
   width: 100%;
+}
+
+.vhs-badge {
+  font-size: 8px;
+  color: #38bdf8;
+  letter-spacing: 0.1em;
+  text-shadow: 2px 2px 0 #000000;
 }
 
 .game-title {
@@ -751,7 +863,7 @@ body {
   color: #fb923c;
 }
 
-/* Game Over Score Box */
+/* Detailed Game Over Stats Board */
 .score-summary {
   width: 100%;
   background-color: #11061f;
@@ -759,7 +871,7 @@ body {
   padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 11px;
 }
 
 .score-row {
@@ -770,16 +882,17 @@ body {
 }
 
 .score-label {
-  font-size: 10px;
+  font-size: 9px;
   color: #fdba74;
+  text-align: left;
 }
 
 .score-num {
-  font-size: 15px;
+  font-size: 13px;
   color: #fff7ed;
   font-variant-numeric: tabular-nums;
 }
 
 .highlight-num {
   color: #fde047;
-}
+                  }
