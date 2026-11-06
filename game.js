@@ -1,7 +1,14 @@
 /**
- * ROCKY'S OUTRUN (#SEISCREATE #03: ROCKYHALLOWEN)
- * Production-Ready Pseudo-3D Vertical Arcade Runner Engine
- * All comments written strictly in English.
+ * SEISCREATE #03: ROCKYHALLOWEN - AAA Indie Pseudo-3D Vertical Arcade Runner
+ * Features:
+ * - OutRun Vanishing Point Projection (Horizon at 45% height)
+ * - Auto-Scoring based on survival distance + Accessible gradual difficulty curve
+ * - Main Menu Attract Mode (slowly moving road speed lines + Rocky running) + Marquee & Watermark
+ * - VHS Pause Mode (Grayscale, blur, scanline tracking glitch)
+ * - 1-Second Slow-Motion Death sequence -> Red Flash -> Detailed Game Over Stats Board
+ * - 1-Second Horizon Bat Warning ('!' indicator in target lane)
+ * - Jump Landing Dust oval particle effect (0.2s)
+ * - 2x Combo System, +10/+20 Candy Floating Text at Rocky, +50 Near-Miss Bonus, 500/1000 Weather Phases
  */
 
 (() => {
@@ -10,8 +17,6 @@
   // Exact Asset Paths
   const ASSETS = {
     bgRoad: 'assets/bg-road.png',
-    envTree: 'assets/env-tree.png',
-    envGrave: 'assets/env-grave.png',
     rockyRun: 'assets/rocky-run.png',
     rockyJump: 'assets/rocky-jump.png',
     rockyHit: 'assets/rocky-hit.png',
@@ -26,57 +31,55 @@
 
   const STORAGE_KEY_HIGH_SCORE = 'seiscreate03_rockyhallowen_highscore';
 
-  // Engine Constants
+  // Engine Constants (Tuned for an accessible, fair, gradually scaling arcade experience)
   const CONFIG = {
-    HORIZON_Y_RATIO: 0.45,          // Vanishing point fixed at Y: 45% of screen height
-    VANISHING_X_RATIO: 0.50,        // Vanishing point fixed at X: 50% of screen width
+    HORIZON_Y_RATIO: 0.45,          // Vanishing point Y at 45% of screen height
+    VANISHING_X_RATIO: 0.50,        // Vanishing point X at horizontal center (50%)
     PLAYER_Y_RATIO: 0.88,           // Player depth plane Y
-    LANE_SPREAD_RATIO: 0.30,        // Horizontal distance between center lanes at player plane
-    PERSPECTIVE_EXPONENT: 2.15,     // Non-linear OutRun depth curve
+    LANE_SPREAD_RATIO: 0.30,        // Horizontal distance between lanes at player plane
+    PERSPECTIVE_EXPONENT: 2.15,     // Non-linear depth curve for OutRun road perspective
     MIN_SPAWN_SCALE: 0.03,          // Near-zero initial scale at the vanishing point
-    FADE_IN_COMPLETE_Z: 0.16,       // Depth at which spawned objects reach full opacity
+    FADE_IN_COMPLETE_Z: 0.18,       // Depth at which spawned objects reach full opacity
     MAX_LIVES: 3,
-    AUTO_SCORE_INTERVAL_MS: 200,    // Automatic distance survival score tick interval
+    AUTO_SCORE_INTERVAL_MS: 200,    // Automatic survival score tick interval
     BASE_CANDY_POINTS: 10,
     COMBO_CANDY_POINTS: 20,
-    COMBO_THRESHOLD: 3,             // 3 consecutive candies triggers shaking 2X COMBO banner
+    COMBO_THRESHOLD: 3,             // 3 consecutive candies triggers 2X COMBO
     NEAR_MISS_POINTS: 50,
     NEAR_MISS_WINDOW_MS: 330,       // Tight dodge window before impact for +50 Near-Miss
-    BAT_WARNING_DURATION_MS: 1000,  // 1.0s blinking red '!' at vanishing point before Bat spawns
-    BAT_SPEED_MULTIPLIER: 1.32,     // Bats fly faster than standard enemies
-    SLOW_MO_DEATH_MS: 1000,         // 1.0s slow-motion effect when losing final life
+    BAT_WARNING_DURATION_MS: 1000,  // Exactly 1.0s warning on the horizon before a Bat spawns
+    BAT_SPEED_MULTIPLIER: 1.32,     // Bats fly faster than regular enemies
+    SLOW_MO_DEATH_MS: 1000,         // 1.0s slow-motion effect when lives reach 0
     SLOW_MO_TIME_SCALE: 0.22,       // Time dilation factor during slow-motion death
-    WEATHER_STORM_SCORE: 500,       // Score 500-1000 triggers lightning flashes
+    WEATHER_STORM_SCORE: 500,       // Score 500-1000 triggers random lightning flashes
     WEATHER_BLOOD_SCORE: 1000,      // Score 1000+ triggers Blood Moon filter & speed boost
-    INVINCIBILITY_MS: 1500,         // 1.5s invincibility flicker after taking non-lethal damage
+    INVINCIBILITY_MS: 1500,         // 1.5s invincibility on non-lethal hit
     HIT_SPRITE_MS: 460,
     RUN_FLIP_INTERVAL_MS: 130,      // 2-frame scaleX(-1) running animation cadence
-    CINEMATIC_ACCEL_MS: 1200,       // Smooth acceleration duration on Cinematic Start
+    CINEMATIC_ACCEL_MS: 1200,       // Smooth speed-line acceleration duration on start
     JUMP_DURATION_MS: 600,
     JUMP_HEIGHT_RATIO: 0.15,
     JUMP_SCALE_BOOST: 0.28,
     COLLISION_Z_MIN: 0.89,
     COLLISION_Z_MAX: 0.99,
-    DESPAWN_Z: 1.25,
-    BASE_SPEED_Z: 0.42,             // Accessible starting speed
-    MAX_SPEED_MULTIPLIER: 2.15,     // Maximum speed cap for long-run playability
-    BASE_SPAWN_INTERVAL_MS: 1250,   // Accessible starting hazard spawn interval
-    MIN_SPAWN_INTERVAL_MS: 440,     // Minimum hazard spawn interval floor
+    DESPAWN_Z: 1.24,
+    BASE_SPEED_Z: 0.42,             // Accessible, moderate starting speed
+    MAX_SPEED_MULTIPLIER: 2.15,     // Cap speed scaling so the game stays playable
+    BASE_SPAWN_INTERVAL_MS: 1250,   // Manageable initial spawn interval
+    MIN_SPAWN_INTERVAL_MS: 440,     // Fair minimum spawn interval floor
     SWIPE_THRESHOLD_PX: 26,
   };
 
   // DOM References
   const viewportEl = document.getElementById('game-viewport');
   const bgRoadEl = document.getElementById('bg-road');
-  const envLayerEl = document.getElementById('env-layer');
+  const bloodMoonTintEl = document.getElementById('blood-moon-tint');
   const speedLinesLayerEl = document.getElementById('speed-lines-layer');
-  const entitiesLayerEl = document.getElementById('entities-layer');
   const warningsLayerEl = document.getElementById('warnings-layer');
-  const landingDustLayerEl = document.getElementById('landing-dust-layer');
+  const entitiesLayerEl = document.getElementById('entities-layer');
   const playerContainerEl = document.getElementById('player-container');
   const playerSpriteEl = document.getElementById('player-sprite');
   const playerShadowEl = document.getElementById('player-shadow');
-  const bloodMoonTintEl = document.getElementById('blood-moon-tint');
   const lightningFlashEl = document.getElementById('lightning-flash');
   const damageFlashEl = document.getElementById('damage-flash');
 
@@ -107,7 +110,7 @@
   const gameoverRestartBtnEl = document.getElementById('gameover-restart-btn');
   const gameoverHomeBtnEl = document.getElementById('gameover-home-btn');
 
-  // Audio Pool
+  // Audio Pool (Strictly the 3 required MP3 files)
   const audioPool = {
     click: new Audio(ASSETS.sfxClick),
     collect: new Audio(ASSETS.sfxCollect),
@@ -126,7 +129,7 @@
       const p = sound.play();
       if (p && typeof p.catch === 'function') p.catch(() => {});
     } catch {
-      // Ignore browser autoplay restrictions before first interaction
+      // Ignore browser autoplay restrictions prior to user interaction
     }
   }
 
@@ -144,26 +147,24 @@
   // Mutable Game State
   const state = {
     mode: 'MENU',                // 'MENU' | 'PLAYING' | 'PAUSED' | 'DYING' | 'GAMEOVER'
-    targetScore: 0,              // Authoritative score
-    displayScore: 0,             // Rolling mechanical HUD score
+    targetScore: 0,              // True score (auto-scoring + candies + near-misses)
+    displayScore: 0,             // Rolling mechanical score counter
     highScore: 0,
     lives: CONFIG.MAX_LIVES,
-    candiesCollected: 0,
-    consecutiveCandies: 0,
-    maxCombo: 0,
+    candiesCollected: 0,         // Total candies collected this run
+    consecutiveCandies: 0,       // Current unbroken candy streak
+    maxCombo: 0,                 // Highest consecutive candy streak this run
     elapsedMs: 0,
     lastFrameTime: 0,
-    cinematicProgress: 0,
+    cinematicProgress: 0,        // 0 -> 1 smooth acceleration on Cinematic Start
     autoScoreTimerMs: 0,
     spawnTimerMs: 0,
-    envSpawnTimerMs: 0,
     speedLineTimerMs: 0,
     runFlipTimerMs: 0,
     runFlipped: false,
     lightningTimerMs: 2400,
     slowMoRemainingMs: 0,
     lastSpawnLane: null,
-    lastEnvSide: 1,
     lastLaneChangeTimeMs: -9999,
     previousLane: 0,
     player: {
@@ -181,7 +182,6 @@
       currentSprite: ASSETS.rockyRun,
     },
     entities: [],
-    envProps: [],
     pendingBatWarnings: [],
     speedLines: [],
   };
@@ -209,8 +209,6 @@
   function preloadImages() {
     [
       ASSETS.bgRoad,
-      ASSETS.envTree,
-      ASSETS.envGrave,
       ASSETS.rockyRun,
       ASSETS.rockyJump,
       ASSETS.rockyHit,
@@ -236,21 +234,22 @@
   }
 
   /**
-   * Progressive Difficulty Curve:
-   * Starts slow and progressively scales speed and spawn rates based on score.
+   * Accessible Difficulty Curve:
+   * In MENU Attract Mode, background speed lines cruise slowly.
+   * On Cinematic Start, speed lines smoothly accelerate from Attract Mode speed to full speed.
    */
   function getDifficultyParams() {
-    const attractWorldSpeedZ = CONFIG.BASE_SPEED_Z * 0.45;
+    const attractParticleSpeedZ = CONFIG.BASE_SPEED_Z * 0.45;
 
     if (state.mode === 'MENU') {
       return {
         speedZ: 0,
-        envSpeedZ: attractWorldSpeedZ,
-        particleSpeedZ: attractWorldSpeedZ * 1.25,
+        particleSpeedZ: attractParticleSpeedZ,
         spawnIntervalMs: CONFIG.BASE_SPAWN_INTERVAL_MS,
       };
     }
 
+    // Gradual scaling: +10% speed per 250 points, plus Blood Moon boost at 1000+
     const gentleScoreFactor = state.targetScore / 250;
     const bloodMoonBoost = state.targetScore >= CONFIG.WEATHER_BLOOD_SCORE ? 0.28 : 0;
     const speedMultiplier = Math.min(
@@ -260,21 +259,22 @@
 
     const accelEase = state.cinematicProgress * state.cinematicProgress * (3 - 2 * state.cinematicProgress);
     const speedZ = CONFIG.BASE_SPEED_Z * speedMultiplier * Math.max(0.15, accelEase);
-    const envSpeedZ = attractWorldSpeedZ + (speedZ - attractWorldSpeedZ) * accelEase;
-
     const fullParticleSpeedZ = CONFIG.BASE_SPEED_Z * speedMultiplier * 1.5;
-    const particleSpeedZ = (attractWorldSpeedZ * 1.25) + (fullParticleSpeedZ - attractWorldSpeedZ * 1.25) * accelEase;
+    const particleSpeedZ = attractParticleSpeedZ + (fullParticleSpeedZ - attractParticleSpeedZ) * accelEase;
 
     const spawnIntervalMs = Math.max(
       CONFIG.MIN_SPAWN_INTERVAL_MS,
       CONFIG.BASE_SPAWN_INTERVAL_MS / (1 + gentleScoreFactor * 0.12 + bloodMoonBoost * 0.25)
     );
 
-    return { speedZ, envSpeedZ, particleSpeedZ, spawnIntervalMs };
+    return { speedZ, particleSpeedZ, spawnIntervalMs };
   }
 
   /**
-   * Handles ambient lightning flashes and Dynamic Weather Shift (Storm at 500+, Blood Moon at 1000+).
+   * Handles Main Menu subtle lightning flashes and Gameplay Dynamic Weather Shift:
+   * - Score 0-500: Normal environment
+   * - Score 500-1000: Random white screen lightning flashes
+   * - Score 1000+: Blood Moon deep blood-red filter + speed boost
    */
   function updateWeatherAndMenuLightning(dtMs) {
     if (state.mode === 'MENU') {
@@ -307,14 +307,14 @@
   }
 
   /**
-   * Projects normalized depth z (0 at vanishing point X: 50%, Y: 45% -> 1 at player plane)
-   * and lateral offset into 2D screen coordinates and scale.
+   * Projects normalized depth (z: 0 at horizon -> 1 at player depth) and lane (-1, 0, 1)
+   * into 2D screen coordinates and scale.
    */
-  function projectPseudo3D(z, lateralOffset) {
+  function projectPseudo3D(z, laneOffset) {
     const clampedZ = Math.max(0, z);
     const perspectiveProgress = Math.pow(clampedZ, CONFIG.PERSPECTIVE_EXPONENT);
 
-    const screenX = metrics.vanishingX + (lateralOffset * metrics.laneSpread * perspectiveProgress);
+    const screenX = metrics.vanishingX + (laneOffset * metrics.laneSpread * perspectiveProgress);
     const screenY = metrics.horizonY + (metrics.roadHeight * perspectiveProgress);
     const scale = CONFIG.MIN_SPAWN_SCALE + (1 - CONFIG.MIN_SPAWN_SCALE) * perspectiveProgress;
 
@@ -337,7 +337,7 @@
   }
 
   /**
-   * Mechanical rolling score tracker: increments displayScore rapidly toward targetScore.
+   * Rolling mechanical score counter: increments displayScore rapidly toward targetScore.
    */
   function updateRollingScore(dtMs) {
     if (state.displayScore < state.targetScore) {
@@ -352,7 +352,7 @@
   }
 
   /**
-   * Spawns fading "+10" or "+20" floating text at Rocky's position when candy is collected.
+   * Spawns floating text (+10, +20, or NEAR MISS!) at Rocky's current position.
    */
   function spawnFloatingTextAtRocky(text, variantClass = '') {
     const el = document.createElement('div');
@@ -393,86 +393,15 @@
   }
 
   /**
-   * Dynamic Side Environment Spawning (Z:2):
-   * Spawns assets/env-tree.png and assets/env-grave.png at the vanishing point (X: 50%, Y: 45%).
-   * As they travel downward, they move aggressively to the extreme LEFT or RIGHT screen edges
-   * and scale up drastically in proportion (purely decorative, no player collision).
-   */
-  function spawnEnvironmentProp(initialZ = 0) {
-    const side = state.lastEnvSide * -1;
-    state.lastEnvSide = side;
-
-    const isTree = Math.random() < 0.62;
-    const asset = isTree ? ASSETS.envTree : ASSETS.envGrave;
-    // Aggressive lateral trajectory pushing props to the extreme left/right forest edges
-    const lateralTrajectory = side * (1.72 + Math.random() * 0.58);
-    // Drastic proportional scale multiplier as props rush toward the camera edges
-    const scaleMultiplier = isTree ? (1.85 + Math.random() * 0.45) : (1.15 + Math.random() * 0.25);
-
-    const el = document.createElement('div');
-    el.className = 'env-prop';
-
-    const img = document.createElement('img');
-    img.src = asset;
-    img.alt = isTree ? 'Spooky Tree' : 'Tombstone';
-    img.draggable = false;
-    el.appendChild(img);
-
-    const proj = projectPseudo3D(initialZ, lateralTrajectory);
-    const renderScale = proj.scale * scaleMultiplier;
-    const fadeOpacity = Math.min(1, initialZ / CONFIG.FADE_IN_COMPLETE_Z);
-
-    el.style.opacity = String(fadeOpacity.toFixed(2));
-    el.style.zIndex = String(Math.floor(initialZ * 100));
-    el.style.transform =
-      `translate3d(${proj.screenX}px, ${proj.screenY}px, 0) translate(-50%, -100%) scale(${renderScale.toFixed(4)})`;
-
-    envLayerEl.appendChild(el);
-    state.envProps.push({
-      el,
-      z: initialZ,
-      lateralTrajectory,
-      scaleMultiplier,
-    });
-  }
-
-  /**
-   * Updates all decorative side environment props (trees and graves).
-   */
-  function updateEnvironmentProps(dtSec, envSpeedZ) {
-    if (envSpeedZ <= 0) return;
-
-    for (let i = state.envProps.length - 1; i >= 0; i--) {
-      const prop = state.envProps[i];
-      prop.z += envSpeedZ * dtSec;
-
-      if (prop.z >= CONFIG.DESPAWN_Z) {
-        if (prop.el.parentNode) prop.el.parentNode.removeChild(prop.el);
-        state.envProps.splice(i, 1);
-        continue;
-      }
-
-      const proj = projectPseudo3D(prop.z, prop.lateralTrajectory);
-      const renderScale = proj.scale * prop.scaleMultiplier;
-      const fadeOpacity = Math.min(1, prop.z / CONFIG.FADE_IN_COMPLETE_Z);
-
-      prop.el.style.opacity = String(fadeOpacity.toFixed(2));
-      prop.el.style.zIndex = String(Math.floor(prop.z * 100));
-      prop.el.style.transform =
-        `translate3d(${proj.screenX}px, ${proj.screenY}px, 0) translate(-50%, -100%) scale(${renderScale.toFixed(4)})`;
-    }
-  }
-
-  /**
-   * Spawns a ground speed line (Z:3) at the vanishing point.
+   * Spawns a ground speed line at the vanishing point.
    */
   function spawnSpeedLine(initialZ = 0.01) {
     const el = document.createElement('div');
     el.className = 'speed-line';
 
-    const trajectories = [-1.35, -1.05, -0.48, 0.48, 1.05, 1.35];
+    const trajectories = [-1.45, -1.12, -0.48, 0.48, 1.12, 1.45];
     const laneTrajectory = trajectories[Math.floor(Math.random() * trajectories.length)] +
-      (Math.random() * 0.10 - 0.05);
+      (Math.random() * 0.12 - 0.06);
 
     const proj = projectPseudo3D(initialZ, laneTrajectory);
     const dx = proj.screenX - metrics.vanishingX;
@@ -493,7 +422,7 @@
   }
 
   /**
-   * Spawns a blinking red '!' warning (Z:8) at the vanishing point in the target lane 1s before a Bat spawns.
+   * Spawns a blinking red '!' warning on the horizon in the target lane exactly 1s before a Bat spawns.
    */
   function scheduleBatWithWarning(lane) {
     const warnEl = document.createElement('div');
@@ -515,7 +444,7 @@
   }
 
   /**
-   * Creates an interactive entity (Pumpkin, Ghost, Bat, or Candy) at the vanishing point (Z:5).
+   * Creates an entity (Pumpkin, Ghost, Bat, or Candy) at the vanishing point.
    */
   function createEntityAtHorizon(type, lane) {
     const isFlying = type === 'ghost' || type === 'bat';
@@ -559,7 +488,7 @@
   }
 
   /**
-   * Selects the next center-lane interactive entity or schedules a 1s Bat warning.
+   * Decides what entity to spawn next (or schedules a 1-second Bat horizon warning).
    */
   function spawnNextWaveItem() {
     const lanes = [-1, 0, 1];
@@ -592,6 +521,7 @@
       const warn = state.pendingBatWarnings[i];
       warn.remainingMs -= dtMs;
 
+      // Keep warning aligned if viewport resizes
       const warnX = metrics.vanishingX + (warn.lane * metrics.laneSpread * 0.28);
       const warnY = metrics.horizonY - 6;
       warn.el.style.left = `${warnX}px`;
@@ -606,7 +536,7 @@
   }
 
   /**
-   * Collects candy: updates combo, spawns fading "+10" or "+20" floating text, plays collect sfx, NO vibration.
+   * Collects candy: updates stats & combo, spawns floating "+10" or "+20" text at Rocky, plays collect sfx, NO vibration.
    */
   function collectCandy(entity, screenX, screenY, scale) {
     entity.resolved = true;
@@ -630,6 +560,7 @@
     entity.el.style.setProperty('--collect-scale', String(scale));
     entity.el.classList.add('candy-collected');
 
+    // Spawn floating yellow "+10" (or "+20" in 2x Combo) text at Rocky's position
     spawnFloatingTextAtRocky(`+${pointsAwarded}`, isCombo ? 'combo-pts' : '');
 
     window.setTimeout(() => {
@@ -647,10 +578,10 @@
 
   /**
    * Handles taking damage from an enemy:
-   * - Resets combo streak
+   * - Resets combo
    * - Plays sfx-hit.mp3
-   * - Strong camera shake + navigator.vibrate(200) ONLY when hit
-   * - Triggers 1s slow-motion death if final life is lost
+   * - Strong haptic feedback navigator.vibrate(200) + severe camera shake
+   * - If lives reach 0, triggers 1-second slow-motion death before red flash & Game Over stats
    */
   function handlePlayerHit(entity) {
     entity.resolved = true;
@@ -663,7 +594,7 @@
     syncHudStatus();
     playSfx('hit');
 
-    // Haptics strictly on enemy hit
+    // Strong haptic feedback strictly on enemy hit
     if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
       try {
         navigator.vibrate(200);
@@ -672,7 +603,7 @@
       }
     }
 
-    // Strong camera shake animation
+    // Trigger severe camera shake
     viewportEl.classList.remove('camera-shake');
     void viewportEl.offsetWidth;
     viewportEl.classList.add('camera-shake');
@@ -681,12 +612,14 @@
     setPlayerSprite(ASSETS.rockyHit);
 
     if (state.lives <= 0) {
+      // Enter 1-second slow-motion death sequence, then flash red & show Game Over stats
       state.mode = 'DYING';
       state.slowMoRemainingMs = CONFIG.SLOW_MO_DEATH_MS;
       state.player.hitSpriteRemainingMs = CONFIG.SLOW_MO_DEATH_MS + 200;
       return;
     }
 
+    // Non-lethal hit: red flash + 1.5s invincibility flicker
     damageFlashEl.classList.remove('flash-active');
     void damageFlashEl.offsetWidth;
     damageFlashEl.classList.add('flash-active');
@@ -697,14 +630,14 @@
   }
 
   /**
-   * Spawns a tiny gray CSS oval at Rocky's feet (Z:15) when finishing a jump (scales up and fades out in 0.2s).
+   * Spawns a small white/gray oval dust puff at Rocky's feet when landing from a jump (0.2s).
    */
   function spawnLandingDust(x, y) {
     const dustEl = document.createElement('div');
     dustEl.className = 'landing-dust';
     dustEl.style.setProperty('--dust-x', `${x}px`);
     dustEl.style.setProperty('--dust-y', `${y}px`);
-    landingDustLayerEl.appendChild(dustEl);
+    entitiesLayerEl.appendChild(dustEl);
 
     window.setTimeout(() => {
       if (dustEl.parentNode) dustEl.parentNode.removeChild(dustEl);
@@ -732,6 +665,7 @@
         p.jumpElapsedMs = 0;
         p.jumpProgress = 0;
         p.jumpArc = 0;
+        // Spawn landing dust effect at Rocky's feet upon touching down
         spawnLandingDust(playerX, metrics.playerY);
       }
     }
@@ -747,7 +681,7 @@
       }
     }
 
-    // Running animation (transform: scaleX(-1) trick) active in both MENU Attract Mode and PLAYING mode
+    // Rocky performs his 2-frame scaleX(-1) running animation in both MENU Attract Mode and PLAYING mode
     if (p.hitSpriteRemainingMs > 0 || state.mode === 'DYING') {
       setPlayerSprite(ASSETS.rockyHit);
       playerSpriteEl.classList.remove('flip-x');
@@ -784,7 +718,7 @@
   }
 
   /**
-   * Updates ground speed lines (Z:3).
+   * Updates dynamic ground speed lines.
    */
   function updateSpeedLines(dtSec, particleSpeedZ) {
     if (particleSpeedZ <= 0) return;
@@ -813,7 +747,7 @@
   }
 
   /**
-   * Updates center-lane interactive entities (Z:5), lane-matching hitboxes, and Near-Miss bonuses.
+   * Updates enemies and candies, smooth fade-in from vanishing point, hitboxes, and Near-Miss bonus.
    */
   function updateEntities(dtSec, speedZ) {
     for (let i = state.entities.length - 1; i >= 0; i--) {
@@ -845,13 +779,13 @@
 
       const fadeInOpacity = Math.min(1, entity.z / CONFIG.FADE_IN_COMPLETE_Z);
       entity.el.style.opacity = String(fadeInOpacity.toFixed(2));
-      entity.el.style.zIndex = String(Math.floor(entity.z * 100));
+      entity.el.style.zIndex = String(Math.floor(entity.z * 16));
       entity.el.style.transform =
         `translate3d(${proj.screenX}px, ${renderY}px, 0) translate(-50%, -100%) scale(${proj.scale.toFixed(4)})`;
 
       if (state.mode !== 'PLAYING') continue;
 
-      // Precise Lane + Depth Hitbox Evaluation
+      // Accurate Lane + Depth Hitbox Check
       if (
         !entity.resolved &&
         entity.z >= CONFIG.COLLISION_Z_MIN &&
@@ -861,10 +795,8 @@
         if (entity.isCollectible) {
           collectCandy(entity, proj.screenX, renderY, proj.scale);
         } else if (entity.isFlying) {
-          // Flying enemies (ghosts and bats) still hit even if Rocky is jumping
           handlePlayerHit(entity);
         } else {
-          // Ground pumpkins are dodged when Rocky is airborne
           const dodgedByJump = state.player.isJumping && state.player.jumpArc > 0.22;
           if (!dodgedByJump) {
             handlePlayerHit(entity);
@@ -878,7 +810,7 @@
         }
       }
 
-      // Near-Miss Check as hazard passes player depth
+      // Near-Miss Check as enemy passes player depth
       if (
         !entity.isCollectible &&
         !entity.resolved &&
@@ -917,6 +849,7 @@
     const rawDtMs = Math.min(50, Math.max(0, timestamp - state.lastFrameTime));
     state.lastFrameTime = timestamp;
 
+    // Apply slow-motion time scale during 1s DYING phase
     const timeScale = state.mode === 'DYING' ? CONFIG.SLOW_MO_TIME_SCALE : 1.0;
     const dtMs = rawDtMs * timeScale;
     const dtSec = dtMs / 1000;
@@ -924,18 +857,9 @@
 
     updateWeatherAndMenuLightning(rawDtMs);
 
-    const { speedZ, envSpeedZ, particleSpeedZ, spawnIntervalMs } = getDifficultyParams();
+    const { speedZ, particleSpeedZ, spawnIntervalMs } = getDifficultyParams();
 
-    // Update and spawn decorative side environment props (Z:2)
-    state.envSpawnTimerMs += dtMs;
-    const envSpawnInterval = Math.max(160, 320 / Math.max(0.35, envSpeedZ / CONFIG.BASE_SPEED_Z));
-    while (state.envSpawnTimerMs >= envSpawnInterval) {
-      state.envSpawnTimerMs -= envSpawnInterval;
-      spawnEnvironmentProp(0.01);
-    }
-    updateEnvironmentProps(dtSec, envSpeedZ);
-
-    // Update and spawn ground speed lines (Z:3)
+    // Update and spawn background speed lines in MENU Attract Mode, PLAYING, and DYING states
     state.speedLineTimerMs += dtMs;
     const speedLineInterval = Math.max(40, 95 / Math.max(0.25, particleSpeedZ / CONFIG.BASE_SPEED_Z));
     while (state.speedLineTimerMs >= speedLineInterval) {
@@ -949,7 +873,7 @@
         state.cinematicProgress = Math.min(1, state.cinematicProgress + rawDtMs / CONFIG.CINEMATIC_ACCEL_MS);
       }
 
-      // Auto-Scoring based on distance survived
+      // Auto-Scoring based on time/distance survived
       if (state.mode === 'PLAYING') {
         state.autoScoreTimerMs += rawDtMs;
         if (state.autoScoreTimerMs >= CONFIG.AUTO_SCORE_INTERVAL_MS) {
@@ -969,7 +893,7 @@
       updateEntities(dtSec, speedZ);
       updateRollingScore(rawDtMs);
 
-      // 1-second slow-motion death completion -> Red Flash -> Game Over Stats Board
+      // Handle 1-second slow-motion death completion -> Red Flash -> Game Over Stats
       if (state.mode === 'DYING') {
         state.slowMoRemainingMs -= rawDtMs;
         if (state.slowMoRemainingMs <= 0) {
@@ -986,17 +910,13 @@
   /**
    * Resets world entities, warnings, and player state cleanly.
    */
-  function resetWorldState(preserveBackgroundMotion = false) {
+  function resetWorldState(preserveSpeedLines = false) {
     updateViewportMetrics();
     entitiesLayerEl.innerHTML = '';
     warningsLayerEl.innerHTML = '';
-    landingDustLayerEl.innerHTML = '';
-
-    if (!preserveBackgroundMotion) {
+    if (!preserveSpeedLines) {
       speedLinesLayerEl.innerHTML = '';
-      envLayerEl.innerHTML = '';
       state.speedLines = [];
-      state.envProps = [];
     }
 
     state.entities = [];
@@ -1012,7 +932,6 @@
     state.cinematicProgress = 0;
     state.autoScoreTimerMs = 0;
     state.spawnTimerMs = 0;
-    state.envSpawnTimerMs = 0;
     state.speedLineTimerMs = 0;
     state.runFlipTimerMs = 0;
     state.runFlipped = false;
@@ -1051,13 +970,6 @@
         spawnSpeedLine((i + 1) * 0.11);
       }
     }
-
-    // Seed initial spooky forest side environment props if none exist yet
-    if (state.envProps.length === 0) {
-      for (let i = 0; i < 6; i++) {
-        spawnEnvironmentProp((i + 1) * 0.16);
-      }
-    }
   }
 
   function enterMainMenu() {
@@ -1074,8 +986,8 @@
   }
 
   /**
-   * Cinematic Start: Main Menu fades out smoothly while Rocky continues running
-   * and the spooky forest & road speed lines accelerate smoothly.
+   * Cinematic Start: UI fades out smoothly, Rocky continues running,
+   * and ground speed lines smoothly accelerate from Attract Mode speed to full speed.
    */
   function triggerCinematicStart() {
     if (state.mode === 'PLAYING') return;
@@ -1114,7 +1026,8 @@
   }
 
   /**
-   * Completes the 1s slow-motion death sequence with a red damage flash and detailed Game Over stats board.
+   * Called after the 1-second slow-motion death finishes:
+   * Triggers a red screen flash and displays the detailed Game Over Stats Board.
    */
   function completeGameOverSequence() {
     state.mode = 'GAMEOVER';
@@ -1122,6 +1035,7 @@
     warningsLayerEl.innerHTML = '';
     state.pendingBatWarnings = [];
 
+    // Red flash at the end of the 1s slow-motion sequence
     damageFlashEl.classList.remove('flash-active');
     void damageFlashEl.offsetWidth;
     damageFlashEl.classList.add('flash-active');
@@ -1138,6 +1052,7 @@
   }
 
   function bindEvents() {
+    // Main Menu Buttons (No vibration on menu clicks)
     insertCoinBtnEl.addEventListener('click', () => {
       playSfx('click');
       triggerCinematicStart();
@@ -1155,11 +1070,13 @@
       menuButtonsGroupEl.classList.remove('hidden');
     });
 
+    // HUD Pause Button
     pauseBtnEl.addEventListener('click', () => {
       playSfx('click');
       pauseGame();
     });
 
+    // Pause Overlay Buttons
     resumeBtnEl.addEventListener('click', () => {
       playSfx('click');
       resumeGame();
@@ -1175,6 +1092,7 @@
       enterMainMenu();
     });
 
+    // Game Over Overlay Buttons
     gameoverRestartBtnEl.addEventListener('click', () => {
       playSfx('click');
       triggerCinematicStart();
@@ -1185,7 +1103,7 @@
       enterMainMenu();
     });
 
-    // PC Keyboard Controls (WASD / Arrows / Space / Escape)
+    // PC Keyboard Controls
     window.addEventListener('keydown', (e) => {
       if (state.mode === 'MENU' && (e.key === 'Enter' || e.key === ' ')) {
         if (instructionsPanelEl.classList.contains('hidden')) {
@@ -1221,7 +1139,7 @@
       }
     });
 
-    // Mobile Swipe Controls (Left/Right to switch lanes, Up to jump)
+    // Mobile Swipe Controls
     let touchStartX = 0;
     let touchStartY = 0;
     let swipeHandled = false;
