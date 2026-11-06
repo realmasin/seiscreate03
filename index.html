@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Rocky's Halloween OutRun</title>
+  <title>SEISCREATE #03: ROCKYHALLOWEN</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
@@ -28,13 +28,13 @@
       <!-- Static 9:16 background road with horizon at 45% height -->
       <img id="bg-road" src="assets/bg-road.png" alt="Halloween Road" draggable="false" />
 
-      <!-- Danger Zone crimson environment shift overlay (activates at Score >= 500) -->
-      <div id="danger-zone-tint" aria-hidden="true"></div>
+      <!-- Blood Moon atmospheric tint (activates at Score >= 1000) -->
+      <div id="blood-moon-tint" aria-hidden="true"></div>
 
       <!-- Dynamic ground speed lines originating at the vanishing point -->
       <div id="speed-lines-layer" aria-hidden="true"></div>
 
-      <!-- Dynamic pseudo-3D entities layer (enemies, candies, score popups) -->
+      <!-- Dynamic pseudo-3D entities layer (enemies, candies, floating text) -->
       <div id="entities-layer" aria-hidden="true"></div>
 
       <!-- Player character (Rocky) -->
@@ -43,15 +43,29 @@
         <img id="player-sprite" src="assets/rocky-run.png" alt="Rocky" draggable="false" />
       </div>
 
+      <!-- Dynamic Weather: Lightning Flash Overlay (Score 500-1000) -->
+      <div id="lightning-flash" aria-hidden="true"></div>
+
       <!-- Red screen flash overlay on taking damage -->
       <div id="damage-flash" aria-hidden="true"></div>
 
-      <!-- Top HUD (Score, 3 Hearts, Pause Button) -->
-      <header id="hud" class="hidden">
-        <div id="lives-panel" aria-label="Lives">
-          <span class="heart" data-index="0">&#9829;</span>
-          <span class="heart" data-index="1">&#9829;</span>
-          <span class="heart" data-index="2">&#9829;</span>
+      <!-- 90s Arcade CRT Scanline & Faint Flicker Overlay -->
+      <div id="crt-overlay" aria-hidden="true"></div>
+
+      <!-- Transparent Floating HUD (Zero emojis, pure CSS pixel-art icons) -->
+      <header id="hud" class="hud-hidden">
+        <div id="hud-left">
+          <div id="lives-panel" aria-label="Lives">
+            <div class="pixel-heart" data-index="0"></div>
+            <div class="pixel-heart" data-index="1"></div>
+            <div class="pixel-heart" data-index="2"></div>
+          </div>
+
+          <!-- Shaking 2x Combo Badge (Pure CSS pixel flame + text) -->
+          <div id="combo-banner" class="hidden" aria-live="polite">
+            <span class="pixel-flame" aria-hidden="true"></span>
+            <span class="combo-text">2X COMBO</span>
+          </div>
         </div>
 
         <div id="score-panel">
@@ -59,31 +73,38 @@
           <span id="score-value">00000</span>
         </div>
 
-        <button id="pause-btn" class="ui-btn icon-btn" type="button" aria-label="Pause Game">
-          &#9208;
+        <button id="pause-btn" class="ui-btn pixel-icon-btn" type="button" aria-label="Pause Game">
+          <span class="pixel-pause-bars" aria-hidden="true"></span>
         </button>
       </header>
 
-      <!-- Main Menu Overlay (Background idles and Rocky runs in place) -->
+      <!-- Main Menu Overlay (Fades out smoothly on Cinematic Start) -->
       <section id="main-menu-overlay" class="overlay-screen">
         <div class="modal-box">
-          <p class="arcade-kicker">16-BIT ARCADE EDITION</p>
-          <h1 class="game-title">ROCKY'S HALLOWEEN RUN</h1>
+          <p class="event-branding">SEISCREATE #03: ROCKYHALLOWEN</p>
+          <h1 class="game-title">ROCKY'S OUTRUN</h1>
 
           <div id="menu-buttons-group" class="btn-stack">
-            <button id="play-btn" class="ui-btn primary-btn" type="button">PLAY</button>
-            <button id="how-to-play-btn" class="ui-btn secondary-btn" type="button">HOW TO PLAY</button>
+            <button id="insert-coin-btn" class="insert-coin-prompt" type="button">
+              INSERT COIN TO START
+            </button>
+            <button id="how-to-play-btn" class="ui-btn secondary-btn" type="button">
+              HOW TO PLAY
+            </button>
           </div>
 
-          <!-- Instructions Sub-Panel inside Main Menu -->
+          <!-- Instructions Sub-Panel -->
           <div id="instructions-panel" class="instructions-box hidden">
             <h2 class="panel-heading">HOW TO PLAY</h2>
             <ul class="instructions-list">
-              <li><strong>MOBILE:</strong> SWIPE LEFT / RIGHT TO MOVE LANES. SWIPE UP TO JUMP.</li>
-              <li><strong>PC:</strong> ARROWS OR WASD TO MOVE. SPACE / UP TO JUMP.</li>
-              <li><strong>RULES:</strong> JUMP OVER PUMPKINS. DODGE FLYING GHOSTS &amp; BATS. COLLECT CANDY (+10 PTS).</li>
+              <li><strong>MOBILE:</strong> SWIPE LEFT / RIGHT TO SWITCH LANES. SWIPE UP TO JUMP.</li>
+              <li><strong>PC:</strong> ARROWS OR WASD TO MOVE. UP / W / SPACE TO JUMP.</li>
+              <li><strong>COMBO:</strong> COLLECT 3 CANDIES IN A ROW FOR 2X SCORE.</li>
+              <li><strong>NEAR MISS:</strong> DODGE AT THE LAST SPLIT-SECOND FOR +50 BONUS.</li>
             </ul>
-            <button id="close-instructions-btn" class="ui-btn primary-btn" type="button">BACK</button>
+            <button id="close-instructions-btn" class="ui-btn primary-btn" type="button">
+              BACK
+            </button>
           </div>
         </div>
       </section>
@@ -127,4 +148,4 @@
 
   <script src="game.js"></script>
 </body>
-  </html>
+        </html>
