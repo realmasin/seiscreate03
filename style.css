@@ -261,7 +261,7 @@ body {
   }
 }
 
-/* Dynamic Entities Layer (Enemies, Candies, Floating Text) */
+/* Dynamic Entities Layer (Enemies, Candies, Floating Text, Landing Dust) */
 #entities-layer {
   position: absolute;
   inset: 0;
@@ -315,7 +315,7 @@ body {
   }
 }
 
-/* Floating Text (+20 at Rocky's position, or NEAR MISS!) */
+/* Floating Text (+10, +20, or NEAR MISS!) */
 .floating-text {
   position: absolute;
   top: 0;
@@ -407,6 +407,35 @@ body {
 @keyframes invincibleFlicker {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.16; }
+}
+
+/* Landing Dust Particle Effect (0.2s oval burst at Rocky's feet) */
+.landing-dust {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 44px;
+  height: 14px;
+  background-color: #e2e8f0;
+  border: 2px solid #94a3b8;
+  border-radius: 50%;
+  z-index: 14;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation: landingDustAnim 0.2s ease-out forwards;
+}
+
+@keyframes landingDustAnim {
+  0% {
+    opacity: 0.9;
+    transform: translate3d(var(--dust-x, 0px), var(--dust-y, 0px), 0)
+      translate(-50%, -50%) scale(0.45, 0.45);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--dust-x, 0px), var(--dust-y, 0px), 0)
+      translate(-50%, -50%) scale(1.75, 1.25);
+  }
 }
 
 /* Lightning Flash Overlay (Main Menu ambient & Score 500-1000 Storm Phase) */
@@ -748,13 +777,63 @@ body {
   position: absolute;
   inset: 0;
   z-index: 35;
-  background-color: rgba(8, 3, 13, 0.65);
+  background-color: rgba(8, 3, 13, 0.58);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
   opacity: 1;
   transition: opacity 0.65s ease;
+}
+
+/* Position Main Menu modal higher so Rocky is clearly visible running in Attract Mode */
+#main-menu-overlay {
+  align-items: flex-start;
+  padding-top: 46px;
+  background-color: rgba(8, 3, 13, 0.38);
+}
+
+/* Main Menu Corner Watermark */
+#menu-watermark {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  font-size: 8px;
+  color: rgba(255, 247, 237, 0.65);
+  text-shadow: 1px 1px 0 #000000;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+/* Bottom Developer Credits Scrolling Marquee */
+#credits-marquee {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  background-color: rgba(12, 4, 22, 0.92);
+  border-top: 2px solid #f97316;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.marquee-track {
+  display: inline-block;
+  white-space: nowrap;
+  padding-left: 100%;
+  font-size: 9px;
+  color: #fde047;
+  text-shadow: 2px 2px 0 #000000;
+  letter-spacing: 0.05em;
+  animation: marqueeScroll 13s linear infinite;
+}
+
+@keyframes marqueeScroll {
+  0% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(-100%, 0, 0); }
 }
 
 .overlay-screen.fade-out {
@@ -895,4 +974,4 @@ body {
 
 .highlight-num {
   color: #fde047;
-     }
+   }
