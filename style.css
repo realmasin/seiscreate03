@@ -144,17 +144,33 @@ body {
   100% { transform: translate3d(0, 0, 0); }
 }
 
-/* Static Road Background */
+/* ==========================================================================
+   Precise Dirt Road Background & Perspective Alignment
+   ========================================================================== */
 #bg-road {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  object-position: center center;
+  background-color: #12071f;
   z-index: 1;
   pointer-events: none;
   transition: filter 1.6s ease;
+}
+
+/* The dirt road perspective matching your exact vanishing point */
+.dirt-path-perspective {
+  position: absolute;
+  top: 42.5%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  height: 57.5%;
+  background-image: url('assets/bg-road.png');
+  background-size: 100% 100%;
+  clip-path: polygon(49.5% 0%, 50.5% 0%, 100% 100%, 0% 100%);
+  z-index: 2;
+  pointer-events: none;
 }
 
 /* Score >= 1000 Blood Moon Phase Shift */
@@ -165,7 +181,7 @@ body {
 #blood-moon-tint {
   position: absolute;
   inset: 0;
-  z-index: 2;
+  z-index: 3;
   background-color: #991b1b;
   opacity: 0;
   pointer-events: none;
@@ -202,7 +218,7 @@ body {
 #speed-lines-layer {
   position: absolute;
   inset: 0;
-  z-index: 3;
+  z-index: 4;
   pointer-events: none;
   overflow: hidden;
 }
